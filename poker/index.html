@@ -1,0 +1,451 @@
+import React, { useEffect, useMemo, useState } from "react";
+
+/**
+ * Minimalist Poker Trainer — compact, debugged build (clean rewrite)
+ * • Pre‑flop box shows Chen + HU/MW% + suggested action + Fold/Play
+ * • Separate street boxes for Flop → Turn → River (each: choose card(s), show action + HU/MW + confidence + info, with Play/Next + Fold)
+ * • KPI tiles removed; only Pre‑flop box shows the preflop metrics
+ * • Hearts (♥) & Diamonds (♦) are red in selects and selected values
+ * • Range matrix (13×13) adapts to position; current combo highlighted
+ * • "New round" & "Fold" both reset boards and rotate seat (decrement with wrap)
+ * • Console.assert tests retained + a few extras
+ */
+
+/**************** Helpers & Basics ****************/
+// helper to pick a random element from an array (declared first to avoid hoist issues)
+function RAND<T>(arr: T[]): T { return arr[Math.floor(Math.random() * arr.length)]; }
+
+const RANKS_ASC = ["2","3","4","5","6","7","8","9","T","J","Q","K","A"]; // low→high
+const RANKS_DESC = ["A","K","Q","J","T","9","8","7","6","5","4","3","2"]; // grid headers
+const SUITS = ["s","c","d","h"]; // ♠ ♣ ♦ ♥
+const SUIT_SYMBOL: Record<string,string> = { s:"♠", c:"♣", d:"♦", h:"♥" };
+const COLOR = (s:string)=> (s==="h"||s==="d") ? "#dc2626" : "#111827";
+const label = (r:string,s:string)=> `${r==="T"?"10":r}${SUIT_SYMBOL[s]}`;
+const idx = (r:string)=> RANKS_ASC.indexOf(r);
+
+/**************** Chen score & preflop equity ****************/
+const RVAL: Record<string,number> = { A:10,K:8,Q:7,J:6,T:5,9:4,8:3,7:2,6:1,5:0,4:0,3:0,2:0 };
+const isPair = (a:{r:string},b:{r:string})=> a.r===b.r;
+const isSuited = (a:{s:string},b:{s:string})=> a.s===b.s;
+const gaps = (a:{r:string},b:{r:string})=> Math.max(0, Math.abs(idx(a.r)-idx(b.r)) - 1);
+
+function chenScore(a:{r:string,s:string}, b:{r:string,s:string}){
+  let hi=a, lo=b;
+  if (RVAL[b.r]>RVAL[a.r] || (RVAL[b.r]===RVAL[a.r] && idx(b.r)>idx(a.r))) { hi=b; lo=a; }
+  let sc = RVAL[hi.r];
+  if (isPair(a,b)) sc = Math.max(5, 2*RVAL[hi.r] + 10);
+  if (isSuited(a,b)) sc += 2;
+  const g = gaps(a,b);
+  if (g===1) sc -= 1; else if (g===2) sc -= 2; else if (g===3) sc -= 4; else if (g>=4) sc -= 5;
+  if (Math.abs(idx(hi.r) - idx(lo.r)) <= 1) sc += 1; // connectivity bonus
+  return Math.max(0, Math.round(sc));
+}
+
+function huFromChen(sc:number){
+  const P = [ {s:0,e:0.22}, {s:5,e:0.40}, {s:8,e:0.50}, {s:12,e:0.66}, {s:16,e:0.78}, {s:20,e:0.85} ];
+  if (sc<=0) return 0.22; if (sc>=20) return 0.85;
+  let L=P[0], R=P[P.length-1];
+  for (let i=0;i<P.length-1;i++){ if (sc>=P[i].s && sc<=P[i+1].s){ L=P[i]; R=P[i+1]; break; } }
+  const t = (sc - L.s)/(R.s - L.s);
+  return L.e + t*(R.e - L.e);
+}
+
+const mwFromHU = (p:number|null, n:number)=> p==null? null : Math.max(0.01, Math.min(0.95, Math.pow(p, Math.max(1, Math.min(8, n-1)))));
+const confFromP = (p:number|null)=> p==null ? {text:"—", color:"#9ca3af"} : (p>=0.70? {text:"High",   color:"#16a34a"} : (p>=0.55? {text:"Medium", color:"#eab308"} : {text:"Low", color:"#dc2626"}));
+
+/**************** Positions & Opening ****************/
+const OPEN_THR: Record<string,number> = { EP:12, MP:10, CO:8, BTN:6, SB:10, BB:9 };
+function seatNames(n:number){
+  const tail: Record<number,string[]> = {
+    0:[], 1:["Cutoff (CO)"], 2:["Under the Gun (UTG)","Cutoff (CO)"],
+    3:["Under the Gun (UTG)","Hijack (HJ)","Cutoff (CO)"],
+    4:["Under the Gun (UTG)","Middle Position (MP)","Hijack (HJ)","Cutoff (CO)"],
+    5:["Under the Gun (UTG)","UTG+1","Middle Position (MP)","Hijack (HJ)","Cutoff (CO)"],
+    6:["Under the Gun (UTG)","UTG+1","Middle Position (MP)","Lojack (LJ)","Hijack (HJ)","Cutoff (CO)"]
+  };
+  return ["Button (BTN)","Small Blind (SB)","Big Blind (BB)", ...(tail[Math.max(0,Math.min(6,n-3))]||[])];
+}
+function posKey(n:number, seats:number){
+  const name = seatNames(n)[((seats % n) + n) % n] || "";
+  if (name.includes("Under the Gun") || name.includes("UTG+1")) return "EP";
+  if (name.includes("Lojack") || name.includes("Middle Position")) return "MP";
+  if (name.includes("Cutoff")) return "CO";
+  if (name.includes("Button")) return "BTN";
+  if (name.includes("Small")) return "SB";
+  if (name.includes("Big Blind")) return "BB";
+  return "MP";
+}
+function preflopAdvice(sc:number, pk:string, n:number){
+  const thr = OPEN_THR[pk] + (n>=8?1 : (n<=5? -1 : 0));
+  const m = sc - thr;
+  let label = "FOLD", size = "—", reason = "Below opening threshold";
+  if (m>=4) { label="RAISE BIG"; size="3.5–4 bb"; reason="Premium vs seat; strong playability"; }
+  else if (m>=0) { label="OPEN RAISE"; size="2.2–3 bb"; reason="Meets seat threshold; take initiative"; }
+  else if (m>=-2){ label="MIX / CAUTIOUS"; size="Open if table tight";  reason="Borderline vs bar"; }
+  return { label, size, reason, margin:m };
+}
+
+/**************** Street evaluator (flop/turn/river) ****************/
+function evalBoard(hole:{r:string,s:string}[], board:{r:string,s:string}[]){
+  const all = [...hole, ...board];
+  const counts:Record<string,number> = {}; const suitCount:Record<string,number>={s:0,c:0,d:0,h:0};
+  all.forEach(x=>{ counts[x.r] = (counts[x.r]||0)+1; suitCount[x.s] = (suitCount[x.s]||0)+1; });
+  const fd = Math.max(suitCount.s, suitCount.c, suitCount.d, suitCount.h) >= 4;
+  const idxs = board.map(b=>idx(b.r)); const top = idxs.length? Math.max(...idxs) : 0; const topR = RANKS_ASC[top];
+  const pair = (counts[hole[0].r]>=2) || (counts[hole[1].r]>=2) || board.some(b=>b.r===hole[0].r || b.r===hole[1].r);
+  const holePair = (hole[0].r===hole[1].r);
+  const overpair = holePair && idx(hole[0].r) > top;
+  const topPair  = !holePair && (hole[0].r===topR || hole[1].r===topR);
+  const uniq = Array.from(new Set(all.map(x=>idx(x.r)))).sort((a,b)=>a-b);
+  let run=1, best=1; for(let i=1;i<uniq.length;i++){ run = (uniq[i]===uniq[i-1]+1) ? run+1 : 1; best=Math.max(best,run); }
+  const oesd = best>=4; let gut=false; for(let i=0;i<uniq.length;i++){ const s=uniq[i]; const w=uniq.filter(x=>x>=s && x<=s+4); if (w.length===4){ gut=true; break; } }
+  let base=0.35; let made="air";
+  if (Object.values(counts).some(v=>v>=4)) { base=0.95; made="quads+"; }
+  else if (Object.values(counts).some(v=>v===3)) { base=0.78; made="trips"; }
+  else if (Object.values(counts).filter(v=>v>=2).length>=2) { base=0.65; made="two pair"; }
+  else if (overpair) { base=0.62; made="overpair"; }
+  else if (topPair)  { base=Math.max(base,0.58); made = (made==="air"?"top pair":made); }
+  else if (pair)     { base=Math.max(base,0.48); made = (made==="air"?"pair":made); }
+  else if ((hole[0].r==="A"||hole[1].r==="A") && made==="air") { base=0.38; made="A‑high"; }
+  if (fd)   base+=0.08; if (oesd) base+=0.08; else if (gut) base+=0.04;
+  const pHU = Math.max(0.05, Math.min(0.9, base));
+  const notes:string[]=[]; if (fd) notes.push("flush draw"); if (oesd) notes.push("OESD"); if (gut) notes.push("gutshot");
+  return { pHU, made, notes };
+}
+
+/**************** Street advice (DEFINE THIS to avoid ReferenceError) ****************/
+function streetAdvice(pHU:number|null, notes:string[]){
+  if (pHU==null) return null as null | {label:string,size:string,blurb:string};
+  const hasFD = notes.includes("flush draw");
+  const hasOESD = notes.includes("OESD");
+  const hasGut = notes.includes("gutshot");
+  if (pHU>=0.75) return { label:"VALUE BET / RAISE", size:"66–100%", blurb:"Press advantage; deny equity." };
+  if (pHU>=0.60) return { label:"BET FOR VALUE",   size:"33–66%",  blurb:"Build pot vs worse; avoid over‑inflating OOP." };
+  if (pHU>=0.45) return { label:"CONTROL POT",      size:"Check/25–33%", blurb:"Pot control; fold to strong lines." };
+  if (hasFD || hasOESD || hasGut) return { label:"SEMI‑BLUFF", size:"33–50%", blurb:"Leverage fold equity; continue on good turns/rivers." };
+  return { label:"CHECK / FOLD", size:"—", blurb:"Give up vs resistance." };
+}
+
+/**************** Component ****************/
+export default function PokerGTOLiteMVP(){
+  // 0=preflop, 1=flop, 2=turn, 3=river
+  const [stage, setStage]   = useState<number>(0);
+  const [players, setPlayers] = useState<number>(6);
+  const [seats, setSeats]   = useState<number>(1); // 0 = Button
+
+  // hole cards (random defaults to keep it fresh)
+  const [c1, setC1] = useState<{r:string,s:string}>({ r: RAND(RANKS_ASC), s: "s" });
+  const [c2, setC2] = useState<{r:string,s:string}>({ r: RAND(RANKS_ASC), s: "h" });
+
+  // board cards (simple scrollers)
+  const [f1, setF1] = useState<string>("");
+  const [f2, setF2] = useState<string>("");
+  const [f3, setF3] = useState<string>("");
+  const [t,  setT ] = useState<string>("");
+  const [r,  setR ] = useState<string>("");
+
+  // deck helpers
+  const DECK = useMemo(()=> RANKS_ASC.flatMap(r=> SUITS.map(s=>({r,s}))), []);
+  const key  = (c:{r:string,s:string}|null)=> c? `${c.r}${c.s}` : "";
+  const find = (k:string)=> DECK.find(x=> key(x)===k) || null;
+
+  // selections as objects
+  const f1c = useMemo(()=> find(f1), [f1]);
+  const f2c = useMemo(()=> find(f2), [f2]);
+  const f3c = useMemo(()=> find(f3), [f3]);
+  const tc  = useMemo(()=> find(t),  [t ]);
+  const rc  = useMemo(()=> find(r),  [r ]);
+
+  // pre‑flop metrics & advice
+  const sc   = useMemo(()=> chenScore(c1,c2), [c1,c2]);
+  const hu0  = useMemo(()=> huFromChen(sc), [sc]);
+  const mw0  = useMemo(()=> mwFromHU(hu0, players), [hu0, players]);
+  const pk   = useMemo(()=> posKey(players, seats), [players, seats]);
+  const seatName = useMemo(()=> seatNames(players)[((seats%players)+players)%players], [players, seats]);
+  const adv0 = useMemo(()=> preflopAdvice(sc, pk, players), [sc, pk, players]);
+  const conf0= useMemo(()=> confFromP(hu0), [hu0]);
+
+  // board arrays
+  const flop = useMemo(()=> (f1c && f2c && f3c && new Set([key(c1),key(c2),key(f1c),key(f2c),key(f3c)]).size===5) ? [f1c,f2c,f3c] : null, [c1,c2,f1c,f2c,f3c]);
+  const turn = useMemo(()=> (flop && tc && !new Set([key(c1),key(c2),key(f1c),key(f2c),key(f3c)]).has(key(tc)))? [...flop, tc] : null, [flop, tc, c1, c2, f1c, f2c, f3c]);
+  const riv  = useMemo(()=> (turn && rc && !new Set([key(c1),key(c2),key(f1c),key(f2c),key(f3c), key(tc||{r:"",s:""})]).has(key(rc)))? [...turn, rc] : null, [turn, rc, c1,c2,f1c,f2c,f3c, tc]);
+
+  // street evaluations & confidence
+  const flEval = useMemo(()=> flop? evalBoard([c1,c2], flop) : null, [c1,c2, flop]);
+  const tuEval = useMemo(()=> turn? evalBoard([c1,c2], turn) : null, [c1,c2, turn]);
+  const rvEval = useMemo(()=> riv ? evalBoard([c1,c2], riv ) : null, [c1,c2, riv ]);
+
+  const hu1 = flEval?.pHU ?? null, hu2 = tuEval?.pHU ?? null, hu3 = rvEval?.pHU ?? null;
+  const mw1 = useMemo(()=> mwFromHU(hu1,  players), [hu1,  players]);
+  const mw2 = useMemo(()=> mwFromHU(hu2,  players), [hu2,  players]);
+  const mw3 = useMemo(()=> mwFromHU(hu3,  players), [hu3,  players]);
+
+  const adv1 = useMemo(()=> (hu1!=null? streetAdvice(hu1, flEval?.notes||[]) : null), [hu1, flEval]);
+  const adv2 = useMemo(()=> (hu2!=null? streetAdvice(hu2, tuEval?.notes||[]) : null), [hu2, tuEval]);
+  const adv3 = useMemo(()=> (hu3!=null? streetAdvice(hu3, rvEval?.notes||[]) : null), [hu3, rvEval]);
+
+  const conf1 = useMemo(()=> confFromP(hu1), [hu1]);
+  const conf2 = useMemo(()=> confFromP(hu2), [hu2]);
+  const conf3 = useMemo(()=> confFromP(hu3), [hu3]);
+
+  // range matrix
+  const grid = useMemo(()=>{
+    const g:string[][] = [];
+    for(let r=0;r<RANKS_DESC.length;r++){
+      g[r] = [];
+      for(let c=0;c<RANKS_DESC.length;c++){
+        const a = {r:RANKS_DESC[r], s:"s"};
+        const b = {r:RANKS_DESC[c], s: (r<c?"s":"h")};
+        const scc = chenScore(a,b);
+        g[r][c] = preflopAdvice(scc, pk, players).label;
+      }
+    }
+    return g;
+  }, [pk, players]);
+
+  // helper formatting
+  const pct = (x:number|null)=> x==null? "—" : `${(x*100).toFixed(1)}%`;
+  const d   = (a:number|null,b:number|null)=> (a!=null && b!=null) ? ` (${((a-b)*100>=0?"+":"")}${((a-b)*100).toFixed(1)})` : "";
+
+  function newRound(){
+    // reset boards
+    setF1(""); setF2(""); setF3(""); setT(""); setR("");
+    // rotate seat (button → last)
+    setSeats(s => (s - 1 + players) % Math.max(1, players));
+    // re‑deal random hole cards
+    setC1({ r: RAND(RANKS_ASC), s: "s" });
+    setC2({ r: RAND(RANKS_ASC), s: "h" });
+    setStage(0);
+  }
+
+  /**************** Tests ****************/
+  function mk(r:string,s:string){ return {r,s}; }
+  useEffect(()=>{
+    console.assert(chenScore(mk("A","s"),mk("A","h")) >= chenScore(mk("K","s"),mk("K","h")), "AA ≥ KK");
+    console.assert(chenScore(mk("K","s"),mk("K","h")) >= chenScore(mk("A","s"),mk("K","d")), "KK ≥ AKo");
+    console.assert(chenScore(mk("A","s"),mk("K","s")) >  chenScore(mk("A","s"),mk("K","d")), "AKs > AKo");
+    console.assert(chenScore(mk("Q","s"),mk("J","s")) >  chenScore(mk("Q","s"),mk("J","d")), "QJs > QJo");
+    console.assert(chenScore(mk("9","s"),mk("9","h"))  >  chenScore(mk("A","s"),mk("K","d")), "99 > AKo");
+    const ai = RANKS_DESC.indexOf("A");
+    console.assert(grid[ai][ai] !== "FOLD", "AA should not be FOLD on BTN 6‑max (sanity)");
+  }, [grid]);
+
+  /**************** UI ****************/
+  return (
+    <div className="p-5 max-w-3xl mx-auto text-gray-900">
+      <h1 className="text-2xl font-bold mb-3">Poker GTO Lite — MVP</h1>
+
+      {/* Top controls */}
+      <div className="gap-3 grid md:grid-cols-3">
+        {/* Hole cards */}
+        <div className="p-3 bg-gray-50 rounded-2xl shadow">
+          <div className="text-sm font-semibold">Choose your cards</div>
+          <div className="grid grid-cols-2 gap-2 mt-1">
+            <select value={key(c1)} onChange={e=>setC1(find(e.target.value)!)} className="border rounded-xl p-1 h-28 text-lg text-center" style={{color:COLOR(c1.s)}}>
+              {RANKS_ASC.flatMap(r => SUITS.map(s => (
+                <option key={`${r}${s}`} value={`${r}${s}`} style={{color:COLOR(s)}}>{label(r,s)}</option>
+              )))}
+            </select>
+            <select value={key(c2)} onChange={e=>setC2(find(e.target.value)!)} className="border rounded-xl p-1 h-28 text-lg text-center" style={{color:COLOR(c2.s)}}>
+              {RANKS_ASC.flatMap(r => SUITS.map(s => (
+                <option key={`b${r}${s}`} value={`${r}${s}`} style={{color:COLOR(s)}}>{label(r,s)}</option>
+              )))}
+            </select>
+          </div>
+        </div>
+
+        {/* Seats */}
+        <div className="p-3 bg-gray-50 rounded-2xl shadow text-sm">
+          <div className="flex items-center justify-between">
+            <div className="font-semibold">Seats from dealer (0 = Button)</div>
+            <button className="text-xs px-2 py-1 rounded-full border" onClick={()=>{
+              const msg = seatNames(players).map((n,i)=>`${i}: ${n}`).join("\n");
+              alert(msg);
+            }}>⋯</button>
+          </div>
+          <input type="range" min={0} max={Math.max(1,players-1)} value={seats} onChange={e=>setSeats(parseInt(e.target.value))} className="w-full mt-1"/>
+          <div className="mt-1">{seats} seat(s) away • <b>{seatName}</b></div>
+        </div>
+
+        {/* Players */}
+        <div className="p-3 bg-gray-50 rounded-2xl shadow text-sm">
+          <div className="flex items-center justify-between">
+            <div className="font-semibold">Players at table</div>
+            <button className="text-xs px-2 py-1 rounded-full border" onClick={()=>{
+              alert("Multiway ≈ (HU%)^opponents; more players → lower single‑hand win rate.");
+            }}>⋯</button>
+          </div>
+          <input type="range" min={2} max={9} value={players} onChange={e=>setPlayers(parseInt(e.target.value))} className="w-full mt-1"/>
+          <div className="mt-1">{players} players</div>
+        </div>
+      </div>
+
+      {/* Pre‑flop box (contains metrics + action) */}
+      <div className="p-4 bg-indigo-50 rounded-2xl border shadow mt-4">
+        <div className="flex items-start justify-between">
+          <div className="text-sm font-semibold text-indigo-900">Pre‑flop</div>
+          <button className="text-xs px-2 py-1 rounded-full border" onClick={()=>{
+            const msg = `Why: ${adv0.reason}\nOpen bar: ${OPEN_THR[pk]} (adj by table size)`; alert(msg);
+          }}>i</button>
+        </div>
+        <div className="text-sm mt-1">Chen score: <b>{sc}</b></div>
+        <div className="text-sm">Win (heads‑up): <b>{pct(hu0)}</b> • Win (multiway): <b>{pct(mw0)}</b></div>
+        <div className="text-base mt-1">Suggested action: <b>{adv0.label}</b> {adv0.size!=="—"? `· ${adv0.size}`:""} {conf0 && <span className="text-xs" style={{color:conf0.color}}>({conf0.text} confidence)</span>}</div>
+        <div className="text-xs text-gray-600">Seat: <b>{seatName}</b> • Players: <b>{players}</b></div>
+        <div className="mt-3 flex gap-2">
+          <button className="px-3 py-2 rounded-md bg-indigo-600 text-white" onClick={()=>setStage(1)}>Play</button>
+          <button className="px-3 py-2 rounded-md border" onClick={newRound}>Fold</button>
+        </div>
+      </div>
+
+      {/* FLOP box */}
+      {stage>=1 && (
+        <div className="p-4 mt-3 bg-gray-50 rounded-2xl border shadow">
+          <div className="text-sm font-semibold">Choose the flop</div>
+          <div className="grid md:grid-cols-3 gap-2 mt-1">
+            <select value={key(f1c)} onChange={e=>setF1(e.target.value)} className="border rounded-xl p-1 h-28 text-lg text-center" style={{color: f1c? COLOR(f1c.s): undefined}}>
+              <option value="">—</option>
+              {RANKS_ASC.flatMap(r => SUITS.map(s => (
+                <option key={`f1${r}${s}`} value={`${r}${s}`} style={{color:COLOR(s)}}>{label(r,s)}</option>
+              )))}
+            </select>
+            <select value={key(f2c)} onChange={e=>setF2(e.target.value)} className="border rounded-xl p-1 h-28 text-lg text-center" style={{color: f2c? COLOR(f2c.s): undefined}}>
+              <option value="">—</option>
+              {RANKS_ASC.flatMap(r => SUITS.map(s => (
+                <option key={`f2${r}${s}`} value={`${r}${s}`} style={{color:COLOR(s)}}>{label(r,s)}</option>
+              )))}
+            </select>
+            <select value={key(f3c)} onChange={e=>setF3(e.target.value)} className="border rounded-xl p-1 h-28 text-lg text-center" style={{color: f3c? COLOR(f3c.s): undefined}}>
+              <option value="">—</option>
+              {RANKS_ASC.flatMap(r => SUITS.map(s => (
+                <option key={`f3${r}${s}`} value={`${r}${s}`} style={{color:COLOR(s)}}>{label(r,s)}</option>
+              )))}
+            </select>
+          </div>
+          {flop && <div className="text-xs mt-2 text-gray-700">Detected: {flEval?.made}{flEval?.notes?.length? ` • ${flEval.notes.join(', ')}`: ''}</div>}
+          <div className="mt-2 p-3 bg-white rounded-2xl border">
+            <div className="flex items-center justify-between">
+              <div className="font-semibold">Post‑flop</div>
+              <button className="text-xs px-2 py-1 rounded-full border" onClick={()=>{
+                const msg = `Equity: ${pct(hu1)}\nDraws: ${(flEval?.notes||[]).join(', ')||'none'}`; alert(msg);
+              }}>i</button>
+            </div>
+            <div>Action: <b>{adv1?.label || '—'}</b> {adv1?.size && adv1.size!=="—" ? `· ${adv1.size}` : ''}</div>
+            <div className="text-sm mt-1">Confidence: <span style={{color:conf1.color}}>{conf1.text}</span></div>
+            <div className="text-sm">HU: <b>{pct(hu1)}</b>{d(hu1, hu0)} • MW: <b>{pct(mw1)}</b>{d(mw1, mw0)}</div>
+            <div className="mt-2 flex gap-2">
+              {flop && <button className="px-3 py-2 rounded-md bg-emerald-600 text-white" onClick={()=>setStage(2)}>Play</button>}
+              <button className="px-3 py-2 rounded-md border" onClick={newRound}>Fold</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TURN box */}
+      {stage>=2 && (
+        <div className="p-4 mt-3 bg-gray-50 rounded-2xl border shadow">
+          <div className="text-sm font-semibold">Choose the turn</div>
+          <div className="mt-1">
+            <select value={key(tc)} onChange={e=>setT(e.target.value)} className="border rounded-xl p-1 h-28 text-lg text-center" style={{color: tc? COLOR(tc.s): undefined}}>
+              <option value="">—</option>
+              {RANKS_ASC.flatMap(r => SUITS.map(s => {
+                const k = `${r}${s}`;
+                const used = new Set([key(c1),key(c2), key(f1c), key(f2c), key(f3c)]);
+                return <option key={`t${k}`} value={k} disabled={used.has(k)} style={{color:COLOR(s)}}>{label(r,s)}</option>;
+              }))}
+            </select>
+          </div>
+          {turn && <div className="text-xs mt-2 text-gray-700">Detected: {tuEval?.made}{tuEval?.notes?.length? ` • ${tuEval.notes.join(', ')}`: ''}</div>}
+          <div className="mt-2 p-3 bg-white rounded-2xl border">
+            <div className="flex items-center justify-between">
+              <div className="font-semibold">Post‑turn</div>
+              <button className="text-xs px-2 py-1 rounded-full border" onClick={()=>{
+                const msg = `Equity: ${pct(hu2)}\nDraws: ${(tuEval?.notes||[]).join(', ')||'none'}`; alert(msg);
+              }}>i</button>
+            </div>
+            <div>Action: <b>{adv2?.label || '—'}</b> {adv2?.size && adv2.size!=="—" ? `· ${adv2.size}` : ''}</div>
+            <div className="text-sm mt-1">Confidence: <span style={{color:conf2.color}}>{conf2.text}</span></div>
+            <div className="text-sm">HU: <b>{pct(hu2)}</b>{d(hu2, hu1)} • MW: <b>{pct(mw2)}</b>{d(mw2, mw1)}</div>
+            <div className="mt-2 flex gap-2">
+              {turn && <button className="px-3 py-2 rounded-md bg-amber-600 text-white" onClick={()=>setStage(3)}>Play</button>}
+              <button className="px-3 py-2 rounded-md border" onClick={newRound}>Fold</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* RIVER box */}
+      {stage>=3 && (
+        <div className="p-4 mt-3 bg-gray-50 rounded-2xl border shadow">
+          <div className="text-sm font-semibold">Choose the river</div>
+          <div className="mt-1">
+            <select value={key(rc)} onChange={e=>setR(e.target.value)} className="border rounded-xl p-1 h-28 text-lg text-center" style={{color: rc? COLOR(rc.s): undefined}}>
+              <option value="">—</option>
+              {RANKS_ASC.flatMap(r0 => SUITS.map(s0 => {
+                const k = `${r0}${s0}`;
+                const used = new Set([key(c1),key(c2), key(f1c), key(f2c), key(f3c), key(tc||{r:"",s:""})]);
+                return <option key={`r${k}`} value={k} disabled={used.has(k)} style={{color:COLOR(s0)}}>{label(r0,s0)}</option>;
+              }))}
+            </select>
+          </div>
+          {riv && <div className="text-xs mt-2 text-gray-700">Detected: {rvEval?.made}{rvEval?.notes?.length? ` • ${rvEval.notes.join(', ')}`: ''}</div>}
+          <div className="mt-2 p-3 bg-white rounded-2xl border">
+            <div className="flex items-center justify-between">
+              <div className="font-semibold">Post‑river</div>
+              <button className="text-xs px-2 py-1 rounded-full border" onClick={()=>{
+                const msg = `Equity: ${pct(hu3)}\nDraws: ${(rvEval?.notes||[]).join(', ')||'none'}`; alert(msg);
+              }}>i</button>
+            </div>
+            <div>Action: <b>{adv3?.label || '—'}</b> {adv3?.size && adv3.size!=="—" ? `· ${adv3.size}` : ''}</div>
+            <div className="text-sm mt-1">Confidence: <span style={{color:conf3.color}}>{conf3.text}</span></div>
+            <div className="text-sm">HU: <b>{pct(hu3)}</b>{d(hu3, hu2)} • MW: <b>{mw3==null? '—' : pct(mw3)}</b>{d(mw3??null, mw2)}</div>
+            <div className="mt-2 flex gap-2">
+              <button className="px-3 py-2 rounded-md bg-gray-900 text-white" onClick={newRound}>New round</button>
+              <button className="px-3 py-2 rounded-md border" onClick={newRound}>Fold</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Range matrix (inline) */}
+      <div className="p-4 mt-4 bg-white rounded-2xl border shadow">
+        <div className="flex items-center justify-between">
+          <div className="text-sm font-semibold">13×13 Range Matrix — {seatName}</div>
+          <button className="text-xs px-2 py-1 rounded-full border" onClick={()=>{
+            alert("Matrix uses Chen + seat‑dependent open bars.");
+          }}>⋯</button>
+        </div>
+        <div className="overflow-auto mt-2">
+          <table className="border-collapse text-[11px]">
+            <thead>
+              <tr>
+                <th></th>
+                {RANKS_DESC.map(h => <th key={`h${h}`} className="px-1 py-0.5 text-center">{h}</th>)}
+              </tr>
+            </thead>
+            <tbody>
+              {grid.map((row, ri) => (
+                <tr key={`r${ri}`}>
+                  <th className="px-1 py-0.5 text-center">{RANKS_DESC[ri]}</th>
+                  {row.map((lab, ci) => {
+                    // Highlight selected combo
+                    const i1 = RANKS_DESC.indexOf(c1.r), i2 = RANKS_DESC.indexOf(c2.r);
+                    const sel = (c1.r===c2.r && i1===ri && ci===ri) ||
+                                (c1.r!==c2.r && ((c1.s===c2.s && Math.min(i1,i2)===ri && Math.max(i1,i2)===ci) ||
+                                                 (c1.s!==c2.s && Math.max(i1,i2)===ri && Math.min(i1,i2)===ci)));
+                    const bg  = (lab==="RAISE BIG"?"#16a34a": lab==="OPEN RAISE"?"#22c55e": lab==="MIX / CAUTIOUS"?"#eab308":"#dc2626");
+                    const tag = `${RANKS_DESC[ri]}${RANKS_DESC[ci]}${ri<ci?"s": (ri===ci?"":"o")}`;
+                    return (
+                      <td key={`c${ri}-${ci}`} style={{backgroundColor:bg,color:'#fff',padding:'4px',border: sel? '3px solid #000' : '1px solid rgba(0,0,0,0.15)'}} title={`${tag}: ${lab}`}>{tag}</td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  );
+}
