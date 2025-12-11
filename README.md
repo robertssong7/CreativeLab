@@ -1,4 +1,4 @@
-<h1 align="center">Robert Song — CreativeLab</h1>
+<h1 align="center">Robert Song's CreativeLab</h1>
 
 <p align="center">
   CreativeLab is my personal space for building simple, fast, and useful interactive tools. 
@@ -21,6 +21,17 @@
 ---
 
 ## Featured Projects
+
+### <a href="https://robertssong7.github.io/CreativeLab/pt-guide/" target="_blank">🩺 Physical Therapy Guide</a>
+
+An interactive visual tool designed to help identify potential musculoskeletal issues based on location, intensity, and pain quality. It uses clinical triage logic to differentiate between simple mechanical aches and issues requiring professional care. 
+
+**Use it to:** 
+- Visually pinpoint pain using an interactive body map
+- Triage symptoms based on clinical red flags and patterns
+- Get immediate, tailored self-management routines
+
+---
 
 ### <a href="https://robertssong7.github.io/CreativeLab/poker/" target="_blank">♦️ Poker Trainer</a>
 
