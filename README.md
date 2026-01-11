@@ -35,7 +35,7 @@ An interactive visual tool designed to help identify potential musculoskeletal i
 
 ### <a href="https://robertssong7.github.io/CreativeLab/poker/" target="_blank">♦️ Poker Trainer</a>
 
-Poker Trainer is a simple practice tool designed to make learning poker more intuitive and more fun, especially for casual home games with friends.  
+Poker Trainer is a simple practice tool designed to make learning poker more intuitive and more fun, all while maximizing your odds.  
 
 It features a clean 13×13 starting-hand grid, customizable scenarios, and lightweight logic prompts that help you understand when a hand is strong, marginal, or worth folding.
 
