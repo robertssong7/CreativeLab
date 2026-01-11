@@ -46,16 +46,18 @@ It features a clean 13×13 starting-hand grid, customizable scenarios, and light
 
 ---
 
-### <a href="https://robertssong7.github.io/CreativeLab/bar/" target="_blank">🍹 Bar Wizard</a>
+### <a href="https://robertssong7.github.io/CreativeLab/bar/" target="_blank">🍹 Drink-ology</a>
 
-Bar Wizard helps you turn whatever ingredients you already have into structured, cocktail-ready recipes. No bartending experience needed.  
+Drink-ology is a recipe generator for both mocktails and cocktails.
 
-It uses a simple “pantry” system that is modifiable, remembers what you have available, and suggests drinks based on ratios, flavor profiles, and classic cocktail structures.
+*Mocktails:* Focuses on body, acidity, and botanicals to create complex non-alcoholic drinks, not just fruit juice.
+
+*Cocktails:* Uses classic ratios to build balanced alcoholic drinks from your available spirits and mixers.
 
 **Use it to:**  
 - Discover new drink ideas with ingredients on hand  
-- Learn the foundations of cocktail structure (sour, old fashioned, highball, and more)
-- Host friends with more variety and less prep 
+- Learn the foundations of a mocktail or cocktail structure 
+- Host friends with more variety and options
 
 ---
 
