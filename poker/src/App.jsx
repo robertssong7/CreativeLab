@@ -86,20 +86,20 @@ export default function App() {
 
   return (
     <div className="p-5 max-w-3xl mx-auto min-h-screen">
-      <h1 className="text-2xl font-bold mb-3">Poker GTO Lite — MVP</h1>
+      <h1 className="text-2xl font-bold mb-3 text-slate-900">Poker GTO Lite — MVP</h1>
 
       {/* Top controls */}
       <div className="gap-3 grid md:grid-cols-3">
         {/* Hole cards */}
-        <div className="p-3 bg-slate-800 rounded-2xl shadow border border-slate-700">
-          <div className="text-sm font-semibold text-slate-300">Choose your cards</div>
+        <div className="p-3 bg-white rounded-2xl shadow-sm border border-slate-200">
+          <div className="text-sm font-semibold text-slate-600">Choose your cards</div>
           <div className="grid grid-cols-2 gap-2 mt-1">
-            <select value={key(c1)} onChange={e => setC1(find(e.target.value))} className="border border-slate-600 bg-slate-900 rounded-xl p-1 h-28 text-lg text-center cursor-pointer" style={{ color: COLOR(c1.s) }}>
+            <select value={key(c1)} onChange={e => setC1(find(e.target.value))} className="border border-slate-300 bg-slate-50 rounded-xl p-1 h-28 text-lg text-center cursor-pointer focus:ring-2 focus:ring-indigo-500 outline-none" style={{ color: COLOR(c1.s) }}>
               {RANKS_ASC.flatMap(r => SUITS.map(s => (
                 <option key={`${r}${s}`} value={`${r}${s}`} style={{ color: COLOR(s) }}>{label(r, s)}</option>
               )))}
             </select>
-            <select value={key(c2)} onChange={e => setC2(find(e.target.value))} className="border border-slate-600 bg-slate-900 rounded-xl p-1 h-28 text-lg text-center cursor-pointer" style={{ color: COLOR(c2.s) }}>
+            <select value={key(c2)} onChange={e => setC2(find(e.target.value))} className="border border-slate-300 bg-slate-50 rounded-xl p-1 h-28 text-lg text-center cursor-pointer focus:ring-2 focus:ring-indigo-500 outline-none" style={{ color: COLOR(c2.s) }}>
               {RANKS_ASC.flatMap(r => SUITS.map(s => (
                 <option key={`b${r}${s}`} value={`${r}${s}`} style={{ color: COLOR(s) }}>{label(r, s)}</option>
               )))}
@@ -108,87 +108,87 @@ export default function App() {
         </div>
 
         {/* Seats */}
-        <div className="p-3 bg-slate-800 rounded-2xl shadow border border-slate-700 text-sm">
+        <div className="p-3 bg-white rounded-2xl shadow-sm border border-slate-200 text-sm">
           <div className="flex items-center justify-between">
-            <div className="font-semibold text-slate-300">Seats from dealer</div>
-            <button className="text-xs px-2 py-1 rounded-full border border-slate-600 text-slate-400" onClick={() => {
+            <div className="font-semibold text-slate-600">Seats from dealer</div>
+            <button className="text-xs px-2 py-1 rounded-full border border-slate-200 text-slate-400 hover:bg-slate-50" onClick={() => {
               const msg = seatNames(players).map((n, i) => `${i}: ${n}`).join("\n");
               alert(msg);
             }}>⋯</button>
           </div>
-          <input type="range" min={0} max={Math.max(1, players - 1)} value={seats} onChange={e => setSeats(parseInt(e.target.value))} className="w-full mt-1 accent-indigo-500" />
-          <div className="mt-1 text-slate-300">{seats} seat(s) away • <b className="text-white">{seatName}</b></div>
+          <input type="range" min={0} max={Math.max(1, players - 1)} value={seats} onChange={e => setSeats(parseInt(e.target.value))} className="w-full mt-1 accent-indigo-600" />
+          <div className="mt-1 text-slate-500">{seats} seat(s) away • <b className="text-slate-900">{seatName}</b></div>
         </div>
 
         {/* Players */}
-        <div className="p-3 bg-slate-800 rounded-2xl shadow border border-slate-700 text-sm">
+        <div className="p-3 bg-white rounded-2xl shadow-sm border border-slate-200 text-sm">
           <div className="flex items-center justify-between">
-            <div className="font-semibold text-slate-300">Players at table</div>
-            <button className="text-xs px-2 py-1 rounded-full border border-slate-600 text-slate-400" onClick={() => {
+            <div className="font-semibold text-slate-600">Players at table</div>
+            <button className="text-xs px-2 py-1 rounded-full border border-slate-200 text-slate-400 hover:bg-slate-50" onClick={() => {
               alert("Multiway ≈ (HU%)^opponents; more players → lower single‑hand win rate.");
             }}>⋯</button>
           </div>
-          <input type="range" min={2} max={9} value={players} onChange={e => setPlayers(parseInt(e.target.value))} className="w-full mt-1 accent-indigo-500" />
-          <div className="mt-1 text-slate-300">{players} players</div>
+          <input type="range" min={2} max={9} value={players} onChange={e => setPlayers(parseInt(e.target.value))} className="w-full mt-1 accent-indigo-600" />
+          <div className="mt-1 text-slate-500">{players} players</div>
         </div>
       </div>
 
       {/* Pre‑flop box */}
-      <div className="p-4 bg-indigo-950/50 rounded-2xl border border-indigo-900 shadow mt-4">
+      <div className="p-4 bg-indigo-50 rounded-2xl border border-indigo-100 shadow-sm mt-4">
         <div className="flex items-start justify-between">
-          <div className="text-sm font-semibold text-indigo-300">Pre‑flop</div>
-          <button className="text-xs px-2 py-1 rounded-full border border-indigo-800 text-indigo-400" onClick={() => {
+          <div className="text-sm font-semibold text-indigo-800">Pre‑flop</div>
+          <button className="text-xs px-2 py-1 rounded-full border border-indigo-200 text-indigo-500 hover:bg-indigo-100" onClick={() => {
             const msg = `Why: ${adv0.reason}\nOpen bar: ${OPEN_THR[pk]} (adj by table size)`; alert(msg);
           }}>i</button>
         </div>
-        <div className="text-sm mt-1 text-slate-300">Chen score: <b className="text-white">{sc}</b></div>
-        <div className="text-sm text-slate-300">Win (heads‑up): <b className="text-white">{pct(hu0)}</b> • Win (multiway): <b className="text-white">{pct(mw0)}</b></div>
-        <div className="text-base mt-2">Suggested action: <b className="text-indigo-200">{adv0.label}</b> {adv0.size !== "—" ? `· ${adv0.size}` : ""} {conf0 && <span className="text-xs font-mono bg-slate-900 px-1 rounded ml-1" style={{ color: conf0.color }}>({conf0.text})</span>}</div>
-        <div className="text-xs text-slate-500 mt-1">Seat: <b>{seatName}</b> • Players: <b>{players}</b></div>
+        <div className="text-sm mt-1 text-slate-600">Chen score: <b className="text-slate-900">{sc}</b></div>
+        <div className="text-sm text-slate-600">Win (heads‑up): <b className="text-slate-900">{pct(hu0)}</b> • Win (multiway): <b className="text-slate-900">{pct(mw0)}</b></div>
+        <div className="text-base mt-2">Suggested action: <b className="text-indigo-700">{adv0.label}</b> {adv0.size !== "—" ? `· ${adv0.size}` : ""} {conf0 && <span className="text-xs font-mono bg-white border border-slate-200 px-1 rounded ml-1" style={{ color: conf0.color }}>({conf0.text})</span>}</div>
+        <div className="text-xs text-slate-400 mt-1">Seat: <b>{seatName}</b> • Players: <b>{players}</b></div>
         <div className="mt-3 flex gap-2">
-          <button className="px-3 py-2 rounded-md bg-indigo-600 hover:bg-indigo-500 text-white font-semibold transition-colors" onClick={() => setStage(1)}>Play</button>
-          <button className="px-3 py-2 rounded-md border border-slate-600 hover:bg-white/5 text-slate-300" onClick={newRound}>Fold</button>
+          <button className="px-3 py-2 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-semibold transition-colors shadow-sm" onClick={() => setStage(1)}>Play</button>
+          <button className="px-3 py-2 rounded-md border border-slate-300 hover:bg-slate-50 text-slate-600" onClick={newRound}>Fold</button>
         </div>
       </div>
 
       {/* FLOP box */}
       {stage >= 1 && (
-        <div className="p-4 mt-3 bg-slate-800 rounded-2xl border border-slate-700 shadow">
-          <div className="text-sm font-semibold text-slate-300">Choose the flop</div>
+        <div className="p-4 mt-3 bg-white rounded-2xl border border-slate-200 shadow-sm">
+          <div className="text-sm font-semibold text-slate-600">Choose the flop</div>
           <div className="grid md:grid-cols-3 gap-2 mt-1">
-            <select value={key(f1c)} onChange={e => setF1(e.target.value)} className="border border-slate-600 bg-slate-900 rounded-xl p-1 h-28 text-lg text-center" style={{ color: f1c ? COLOR(f1c.s) : undefined }}>
+            <select value={key(f1c)} onChange={e => setF1(e.target.value)} className="border border-slate-300 bg-slate-50 rounded-xl p-1 h-28 text-lg text-center focus:ring-2 focus:ring-indigo-500 outline-none" style={{ color: f1c ? COLOR(f1c.s) : undefined }}>
               <option value="">—</option>
               {RANKS_ASC.flatMap(r => SUITS.map(s => (
                 <option key={`f1${r}${s}`} value={`${r}${s}`} style={{ color: COLOR(s) }}>{label(r, s)}</option>
               )))}
             </select>
-            <select value={key(f2c)} onChange={e => setF2(e.target.value)} className="border border-slate-600 bg-slate-900 rounded-xl p-1 h-28 text-lg text-center" style={{ color: f2c ? COLOR(f2c.s) : undefined }}>
+            <select value={key(f2c)} onChange={e => setF2(e.target.value)} className="border border-slate-300 bg-slate-50 rounded-xl p-1 h-28 text-lg text-center focus:ring-2 focus:ring-indigo-500 outline-none" style={{ color: f2c ? COLOR(f2c.s) : undefined }}>
               <option value="">—</option>
               {RANKS_ASC.flatMap(r => SUITS.map(s => (
                 <option key={`f2${r}${s}`} value={`${r}${s}`} style={{ color: COLOR(s) }}>{label(r, s)}</option>
               )))}
             </select>
-            <select value={key(f3c)} onChange={e => setF3(e.target.value)} className="border border-slate-600 bg-slate-900 rounded-xl p-1 h-28 text-lg text-center" style={{ color: f3c ? COLOR(f3c.s) : undefined }}>
+            <select value={key(f3c)} onChange={e => setF3(e.target.value)} className="border border-slate-300 bg-slate-50 rounded-xl p-1 h-28 text-lg text-center focus:ring-2 focus:ring-indigo-500 outline-none" style={{ color: f3c ? COLOR(f3c.s) : undefined }}>
               <option value="">—</option>
               {RANKS_ASC.flatMap(r => SUITS.map(s => (
                 <option key={`f3${r}${s}`} value={`${r}${s}`} style={{ color: COLOR(s) }}>{label(r, s)}</option>
               )))}
             </select>
           </div>
-          {flop && <div className="text-xs mt-2 text-slate-400">Detected: <span className="text-white font-medium">{flEval?.made}</span>{flEval?.notes?.length ? ` • ${flEval.notes.join(', ')}` : ''}</div>}
-          <div className="mt-2 p-3 bg-slate-900 rounded-2xl border border-slate-700">
+          {flop && <div className="text-xs mt-2 text-slate-500">Detected: <span className="text-slate-900 font-medium">{flEval?.made}</span>{flEval?.notes?.length ? ` • ${flEval.notes.join(', ')}` : ''}</div>}
+          <div className="mt-2 p-3 bg-slate-50 rounded-2xl border border-slate-200">
             <div className="flex items-center justify-between">
-              <div className="font-semibold text-slate-300">Post‑flop</div>
-              <button className="text-xs px-2 py-1 rounded-full border border-slate-600 text-slate-400" onClick={() => {
+              <div className="font-semibold text-slate-600">Post‑flop</div>
+              <button className="text-xs px-2 py-1 rounded-full border border-slate-200 text-slate-400 hover:bg-white" onClick={() => {
                 const msg = `Equity: ${pct(hu1)}\nDraws: ${(flEval?.notes || []).join(', ') || 'none'}`; alert(msg);
               }}>i</button>
             </div>
-            <div className="text-lg mt-1">Action: <b className="text-emerald-400">{adv1?.label || '—'}</b> {adv1?.size && adv1.size !== "—" ? `· ${adv1.size}` : ''}</div>
+            <div className="text-lg mt-1">Action: <b className="text-emerald-600">{adv1?.label || '—'}</b> {adv1?.size && adv1.size !== "—" ? `· ${adv1.size}` : ''}</div>
             <div className="text-sm mt-1">Confidence: <span style={{ color: conf1.color }}>{conf1.text}</span></div>
-            <div className="text-sm text-slate-400">HU: <b className="text-white">{pct(hu1)}</b>{d(hu1, hu0)} • MW: <b className="text-white">{pct(mw1)}</b>{d(mw1, mw0)}</div>
+            <div className="text-sm text-slate-500">HU: <b className="text-slate-900">{pct(hu1)}</b>{d(hu1, hu0)} • MW: <b className="text-slate-900">{pct(mw1)}</b>{d(mw1, mw0)}</div>
             <div className="mt-2 flex gap-2">
-              {flop && <button className="px-3 py-2 rounded-md bg-emerald-600 hover:bg-emerald-500 text-white font-semibold transition-colors" onClick={() => setStage(2)}>Play</button>}
-              <button className="px-3 py-2 rounded-md border border-slate-600 hover:bg-white/5 text-slate-300" onClick={newRound}>Fold</button>
+              {flop && <button className="px-3 py-2 rounded-md bg-emerald-600 hover:bg-emerald-500 text-white font-semibold transition-colors shadow-sm" onClick={() => setStage(2)}>Play</button>}
+              <button className="px-3 py-2 rounded-md border border-slate-300 hover:bg-white text-slate-600" onClick={newRound}>Fold</button>
             </div>
           </div>
         </div>
@@ -196,10 +196,10 @@ export default function App() {
 
       {/* TURN box */}
       {stage >= 2 && (
-        <div className="p-4 mt-3 bg-slate-800 rounded-2xl border border-slate-700 shadow">
-          <div className="text-sm font-semibold text-slate-300">Choose the turn</div>
+        <div className="p-4 mt-3 bg-white rounded-2xl border border-slate-200 shadow-sm">
+          <div className="text-sm font-semibold text-slate-600">Choose the turn</div>
           <div className="mt-1">
-            <select value={key(tc)} onChange={e => setT(e.target.value)} className="border border-slate-600 bg-slate-900 rounded-xl p-1 h-28 text-lg text-center" style={{ color: tc ? COLOR(tc.s) : undefined }}>
+            <select value={key(tc)} onChange={e => setT(e.target.value)} className="border border-slate-300 bg-slate-50 rounded-xl p-1 h-28 text-lg text-center focus:ring-2 focus:ring-indigo-500 outline-none" style={{ color: tc ? COLOR(tc.s) : undefined }}>
               <option value="">—</option>
               {RANKS_ASC.flatMap(r => SUITS.map(s => {
                 const k = `${r}${s}`;
@@ -208,20 +208,20 @@ export default function App() {
               }))}
             </select>
           </div>
-          {turn && <div className="text-xs mt-2 text-slate-400">Detected: <span className="text-white font-medium">{tuEval?.made}</span>{tuEval?.notes?.length ? ` • ${tuEval.notes.join(', ')}` : ''}</div>}
-          <div className="mt-2 p-3 bg-slate-900 rounded-2xl border border-slate-700">
+          {turn && <div className="text-xs mt-2 text-slate-500">Detected: <span className="text-slate-900 font-medium">{tuEval?.made}</span>{tuEval?.notes?.length ? ` • ${tuEval.notes.join(', ')}` : ''}</div>}
+          <div className="mt-2 p-3 bg-slate-50 rounded-2xl border border-slate-200">
             <div className="flex items-center justify-between">
-              <div className="font-semibold text-slate-300">Post‑turn</div>
-              <button className="text-xs px-2 py-1 rounded-full border border-slate-600 text-slate-400" onClick={() => {
+              <div className="font-semibold text-slate-600">Post‑turn</div>
+              <button className="text-xs px-2 py-1 rounded-full border border-slate-200 text-slate-400 hover:bg-white" onClick={() => {
                 const msg = `Equity: ${pct(hu2)}\nDraws: ${(tuEval?.notes || []).join(', ') || 'none'}`; alert(msg);
               }}>i</button>
             </div>
-            <div className="text-lg mt-1">Action: <b className="text-amber-400">{adv2?.label || '—'}</b> {adv2?.size && adv2.size !== "—" ? `· ${adv2.size}` : ''}</div>
+            <div className="text-lg mt-1">Action: <b className="text-amber-600">{adv2?.label || '—'}</b> {adv2?.size && adv2.size !== "—" ? `· ${adv2.size}` : ''}</div>
             <div className="text-sm mt-1">Confidence: <span style={{ color: conf2.color }}>{conf2.text}</span></div>
-            <div className="text-sm text-slate-400">HU: <b className="text-white">{pct(hu2)}</b>{d(hu2, hu1)} • MW: <b className="text-white">{pct(mw2)}</b>{d(mw2, mw1)}</div>
+            <div className="text-sm text-slate-500">HU: <b className="text-slate-900">{pct(hu2)}</b>{d(hu2, hu1)} • MW: <b className="text-slate-900">{pct(mw2)}</b>{d(mw2, mw1)}</div>
             <div className="mt-2 flex gap-2">
-              {turn && <button className="px-3 py-2 rounded-md bg-amber-600 hover:bg-amber-500 text-white font-semibold transition-colors" onClick={() => setStage(3)}>Play</button>}
-              <button className="px-3 py-2 rounded-md border border-slate-600 hover:bg-white/5 text-slate-300" onClick={newRound}>Fold</button>
+              {turn && <button className="px-3 py-2 rounded-md bg-amber-600 hover:bg-amber-500 text-white font-semibold transition-colors shadow-sm" onClick={() => setStage(3)}>Play</button>}
+              <button className="px-3 py-2 rounded-md border border-slate-300 hover:bg-white text-slate-600" onClick={newRound}>Fold</button>
             </div>
           </div>
         </div>
@@ -229,10 +229,10 @@ export default function App() {
 
       {/* RIVER box */}
       {stage >= 3 && (
-        <div className="p-4 mt-3 bg-slate-800 rounded-2xl border border-slate-700 shadow">
-          <div className="text-sm font-semibold text-slate-300">Choose the river</div>
+        <div className="p-4 mt-3 bg-white rounded-2xl border border-slate-200 shadow-sm">
+          <div className="text-sm font-semibold text-slate-600">Choose the river</div>
           <div className="mt-1">
-            <select value={key(rc)} onChange={e => setR(e.target.value)} className="border border-slate-600 bg-slate-900 rounded-xl p-1 h-28 text-lg text-center" style={{ color: rc ? COLOR(rc.s) : undefined }}>
+            <select value={key(rc)} onChange={e => setR(e.target.value)} className="border border-slate-300 bg-slate-50 rounded-xl p-1 h-28 text-lg text-center focus:ring-2 focus:ring-indigo-500 outline-none" style={{ color: rc ? COLOR(rc.s) : undefined }}>
               <option value="">—</option>
               {RANKS_ASC.flatMap(r0 => SUITS.map(s0 => {
                 const k = `${r0}${s0}`;
@@ -241,35 +241,35 @@ export default function App() {
               }))}
             </select>
           </div>
-          {riv && <div className="text-xs mt-2 text-slate-400">Detected: <span className="text-white font-medium">{rvEval?.made}</span>{rvEval?.notes?.length ? ` • ${rvEval.notes.join(', ')}` : ''}</div>}
-          <div className="mt-2 p-3 bg-slate-900 rounded-2xl border border-slate-700">
+          {riv && <div className="text-xs mt-2 text-slate-500">Detected: <span className="text-slate-900 font-medium">{rvEval?.made}</span>{rvEval?.notes?.length ? ` • ${rvEval.notes.join(', ')}` : ''}</div>}
+          <div className="mt-2 p-3 bg-slate-50 rounded-2xl border border-slate-200">
             <div className="flex items-center justify-between">
-              <div className="font-semibold text-slate-300">Post‑river</div>
-              <button className="text-xs px-2 py-1 rounded-full border border-slate-600 text-slate-400" onClick={() => {
+              <div className="font-semibold text-slate-600">Post‑river</div>
+              <button className="text-xs px-2 py-1 rounded-full border border-slate-200 text-slate-400 hover:bg-white" onClick={() => {
                 const msg = `Equity: ${pct(hu3)}\nDraws: ${(rvEval?.notes || []).join(', ') || 'none'}`; alert(msg);
               }}>i</button>
             </div>
-            <div className="text-lg mt-1">Action: <b className="text-slate-200">{adv3?.label || '—'}</b> {adv3?.size && adv3.size !== "—" ? `· ${adv3.size}` : ''}</div>
+            <div className="text-lg mt-1">Action: <b className="text-slate-700">{adv3?.label || '—'}</b> {adv3?.size && adv3.size !== "—" ? `· ${adv3.size}` : ''}</div>
             <div className="text-sm mt-1">Confidence: <span style={{ color: conf3.color }}>{conf3.text}</span></div>
-            <div className="text-sm text-slate-400">HU: <b className="text-white">{pct(hu3)}</b>{d(hu3, hu2)} • MW: <b className="text-white">{mw3 == null ? '—' : pct(mw3)}</b>{d(mw3 ?? null, mw2)}</div>
+            <div className="text-sm text-slate-500">HU: <b className="text-slate-900">{pct(hu3)}</b>{d(hu3, hu2)} • MW: <b className="text-slate-900">{mw3 == null ? '—' : pct(mw3)}</b>{d(mw3 ?? null, mw2)}</div>
             <div className="mt-2 flex gap-2">
-              <button className="px-3 py-2 rounded-md bg-slate-700 hover:bg-slate-600 text-white border border-slate-500" onClick={newRound}>New round</button>
-              <button className="px-3 py-2 rounded-md border border-slate-600 hover:bg-white/5 text-slate-300" onClick={newRound}>Fold</button>
+              <button className="px-3 py-2 rounded-md bg-slate-700 hover:bg-slate-800 text-white border border-slate-700 shadow-sm" onClick={newRound}>New round</button>
+              <button className="px-3 py-2 rounded-md border border-slate-300 hover:bg-white text-slate-600" onClick={newRound}>Fold</button>
             </div>
           </div>
         </div>
       )}
 
       {/* Range matrix */}
-      <div className="p-4 mt-4 bg-slate-800 rounded-2xl border border-slate-700 shadow">
+      <div className="p-4 mt-4 bg-white rounded-2xl border border-slate-200 shadow-sm">
         <div className="flex items-center justify-between">
-          <div className="text-sm font-semibold text-slate-300">13×13 Range Matrix — {seatName}</div>
-          <button className="text-xs px-2 py-1 rounded-full border border-slate-600 text-slate-400" onClick={() => {
+          <div className="text-sm font-semibold text-slate-600">13×13 Range Matrix — {seatName}</div>
+          <button className="text-xs px-2 py-1 rounded-full border border-slate-200 text-slate-400 hover:bg-slate-50" onClick={() => {
             alert("Matrix uses Chen + seat‑dependent open bars.");
           }}>⋯</button>
         </div>
         <div className="overflow-auto mt-2">
-          <table className="border-collapse text-[11px] w-full text-slate-400">
+          <table className="border-collapse text-[11px] w-full text-slate-500">
             <thead>
               <tr>
                 <th></th>
@@ -293,7 +293,7 @@ export default function App() {
                           backgroundColor: bg,
                           color: '#fff',
                           padding: '4px',
-                          border: sel ? '3px solid #fff' : '1px solid rgba(0,0,0,0.2)',
+                          border: sel ? '3px solid #1e293b' : '1px solid rgba(255,255,255,0.2)',
                           borderRadius: '2px',
                           opacity: 0.9
                         }}
