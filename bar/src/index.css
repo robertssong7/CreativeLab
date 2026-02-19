@@ -1,0 +1,34 @@
+@import "tailwindcss";
+@config "../tailwind.config.js";
+
+@layer base {
+  body {
+    @apply font-sans antialiased;
+  }
+
+  h1,
+  h2,
+  h3,
+  .serif {
+    font-family: 'Playfair Display', serif;
+  }
+}
+
+/* Custom scrollbar for sidebar */
+.thin-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+
+.thin-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.thin-scroll::-webkit-scrollbar-thumb {
+  background: currentColor;
+  border-radius: 4px;
+  opacity: 0.2;
+}
+
+.thin-scroll:hover::-webkit-scrollbar-thumb {
+  opacity: 0.4;
+}
