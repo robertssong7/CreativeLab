@@ -59,12 +59,14 @@ jobs:
       # Assemble Distribution
       - name: Assemble Site
         run: |
-          mkdir _site
+          mkdir -p _site/bar
+          mkdir -p _site/poker
+          mkdir -p _site/pt-guide
           echo "" > _site/.nojekyll
           cp index.html _site/
-          cp -r bar/dist _site/bar
-          cp -r poker/dist _site/poker
-          cp -r pt-guide/dist _site/pt-guide
+          cp -r bar/dist/* _site/bar/
+          cp -r poker/dist/* _site/poker/
+          cp -r pt-guide/dist/* _site/pt-guide/
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
