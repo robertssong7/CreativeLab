@@ -36,7 +36,7 @@ jobs:
       - name: Build Bar
         run: |
           cd bar
-          npm ci
+          npm install
           npm run build
           cd ..
 
@@ -44,7 +44,7 @@ jobs:
       - name: Build Poker
         run: |
           cd poker
-          npm ci
+          npm install
           npm run build
           cd ..
 
@@ -52,7 +52,7 @@ jobs:
       - name: Build PT Guide
         run: |
           cd pt-guide
-          npm ci
+          npm install
           npm run build
           cd ..
 
@@ -60,6 +60,7 @@ jobs:
       - name: Assemble Site
         run: |
           mkdir _site
+          echo "" > _site/.nojekyll
           cp index.html _site/
           cp -r bar/dist _site/bar
           cp -r poker/dist _site/poker
