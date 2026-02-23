@@ -1,3 +1,4 @@
+// PT Guide App Entry Point
 import React, { useState, useRef } from 'react';
 import { Activity, ShieldAlert, Stethoscope, ChevronRight, AlertTriangle, AlertCircle, RefreshCcw, ActivitySquare } from 'lucide-react';
 import BodySilhouette from './components/BodySilhouette';
