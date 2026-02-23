@@ -14,11 +14,11 @@ export default function App() {
   const { pantry, toggle, isSelected, reset } = usePantryState(mode);
   const [step, setStep] = useState(0);
   const [results, setResults] = useState([]);
+  const [flavorFilter, setFlavorFilter] = useState([]);
 
   const CONFIG = mode === "cocktail" ? COCKTAIL_CATEGORIES : MOCKTAIL_CATEGORIES;
   const [optionsMap, setOptionsMap] = useState({});
 
-  // Theme colors logic mapping
   const theme = useMemo(() => {
     if (mode === 'mocktail') {
       return {
@@ -63,6 +63,7 @@ export default function App() {
     setOptionsMap(newMap);
     setStep(0);
     setResults([]);
+    setFlavorFilter([]);
   }, [mode]);
 
   const handleAddOther = (key, raw) => {
@@ -80,8 +81,7 @@ export default function App() {
 
   const handleGenerate = (prompt, filters) => {
     const existingNames = new Set(results.map(r => r.name));
-    // Use the new Flavor Engine!
-    const drinks = generateDrinks(mode, present, 6, prompt, filters, existingNames);
+    const drinks = generateDrinks(mode, present, 6, prompt, filters, existingNames, flavorFilter.length > 0 ? flavorFilter : null);
     setResults(drinks);
     setStep(CONFIG.length);
   };
@@ -131,9 +131,11 @@ export default function App() {
               <GenerateCard
                 onGenerate={handleGenerate}
                 results={results}
-                onReset={() => { setStep(0); setResults([]); }}
+                onReset={() => { setStep(0); setResults([]); setFlavorFilter([]); }}
                 mode={mode}
                 theme={theme}
+                flavorFilter={flavorFilter}
+                setFlavorFilter={setFlavorFilter}
               />
             )}
           </section>

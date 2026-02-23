@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Sparkles, Lightbulb, AlertTriangle, ChevronDown, Droplets, Users } from 'lucide-react';
+import { Sparkles, Lightbulb, AlertTriangle, ChevronDown, Users, Droplets, ArrowRight, RefreshCw } from 'lucide-react';
+import { FLAVOR_TAGS } from '../data/recipes';
+import { getSubstitutions, calculateBatch } from '../utils/flavorEngine';
 
-export default function GenerateCard({ onGenerate, results, onReset, mode, theme }) {
+export default function GenerateCard({ onGenerate, results, onReset, mode, theme, flavorFilter, setFlavorFilter }) {
     const [prompt, setPrompt] = useState("");
-    const [filters, setFilters] = useState({ classic: true, creative: true, flavor: "All" });
+    const [filters, setFilters] = useState({ classic: true, creative: true });
     const [expandedId, setExpandedId] = useState(null);
-    const [batchSize, setBatchSize] = useState({}); // { [drinkId]: numberOfPeople }
+    const [batchServings, setBatchServings] = useState({});  // { [drinkId]: servings }
 
     useEffect(() => {
         if (results.length === 0) {
@@ -20,20 +22,21 @@ export default function GenerateCard({ onGenerate, results, onReset, mode, theme
 
     const toggleExpand = (id) => setExpandedId(curr => curr === id ? null : id);
 
-    const updateBatch = (id, people) => {
-        setBatchSize(prev => ({ ...prev, [id]: people }));
+    const toggleFlavor = (tagId) => {
+        setFlavorFilter(prev => {
+            if (prev.includes(tagId)) return prev.filter(t => t !== tagId);
+            return [...prev, tagId];
+        });
     };
 
-    // Filter results locally by flavor if "All" is not selected
-    const displayResults = filters.flavor === "All"
-        ? results
-        : results.filter(r => r.flavor === filters.flavor || !r.flavor);
+    const getServings = (id) => batchServings[id] || 1;
+    const setServings = (id, val) => setBatchServings(prev => ({ ...prev, [id]: val }));
 
-    // Dynamic classes based on theme
-    const detailText = mode === 'mocktail' ? 'text-mocktail-text' : 'text-cocktail-text';
     const detailBg = mode === 'mocktail' ? 'bg-mocktail-50' : 'bg-cocktail-950/40';
     const inputBg = mode === 'mocktail' ? 'bg-white' : 'bg-cocktail-950/50 border-cocktail-700 text-cocktail-text';
     const itemHover = mode === 'mocktail' ? 'hover:border-mocktail-accent/50' : 'hover:border-cocktail-accent/50';
+    const chipActive = mode === 'mocktail' ? 'border-mocktail-accent bg-mocktail-50 text-mocktail-accent font-semibold' : 'border-cocktail-accent bg-cocktail-950 text-cocktail-accent font-semibold';
+    const chipInactive = mode === 'mocktail' ? 'border-black/10 bg-white hover:bg-mocktail-50 text-gray-500' : 'border-cocktail-800 bg-cocktail-900/50 hover:bg-cocktail-800 text-cocktail-muted';
 
     return (
         <div className={`fade-in rounded-3xl border p-6 shadow-xl md:p-10 ${theme.card} ${theme.cardBorder}`}>
@@ -43,27 +46,41 @@ export default function GenerateCard({ onGenerate, results, onReset, mode, theme
                 <p className="text-sm opacity-60">Curated based on your inventory & expert pairings.</p>
             </div>
 
-            {/* Global Flavor Matrix Filter */}
-            <div className={`mb-6 p-4 rounded-2xl border ${mode === 'mocktail' ? 'bg-white border-black/5' : 'bg-cocktail-900 border-cocktail-800'}`}>
-                <label className="text-xs font-bold uppercase tracking-widest opacity-50 block mb-3">Flavor Matrix Navigation</label>
+            {/* Flavor Matrix */}
+            <div className="mb-6">
+                <h4 className="mb-3 text-xs font-bold uppercase tracking-widest opacity-50">Flavor Matrix — What are you in the mood for?</h4>
                 <div className="flex flex-wrap gap-2">
-                    {["All", "Sour", "Bitter", "Sweet-Tart", "Spirit-Forward", "Rich", "Herbaceous", "Spicy", "Citrus"].map(f => (
+                    {FLAVOR_TAGS.map(tag => (
                         <button
-                            key={f}
-                            onClick={() => setFilters(prev => ({ ...prev, flavor: f }))}
-                            className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors border ${filters.flavor === f ? theme.accent : inputBg}`}
+                            key={tag.id}
+                            onClick={() => toggleFlavor(tag.id)}
+                            className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs transition-all duration-200 ${flavorFilter.includes(tag.id) ? chipActive : chipInactive}`}
                         >
-                            {f}
+                            <span>{tag.emoji}</span>
+                            <span>{tag.label}</span>
                         </button>
                     ))}
                 </div>
+                {flavorFilter.length > 0 && (
+                    <button onClick={() => setFlavorFilter([])} className="mt-2 text-[10px] uppercase tracking-wider opacity-50 hover:opacity-100 underline">
+                        Clear Filters
+                    </button>
+                )}
             </div>
 
+            {/* House Tip */}
+            <div className={`mb-6 flex gap-3 rounded-lg border p-4 text-sm ${mode === 'mocktail' ? 'border-mocktail-accent/20 bg-mocktail-50 text-mocktail-text' : 'border-cocktail-700 bg-cocktail-800/30 text-cocktail-text'}`}>
+                <Lightbulb className="h-5 w-5 shrink-0 opacity-80" />
+                <p><span className="font-bold">House Rule:</span> Always chill your glassware before serving. A cold glass keeps the drink alive longer.</p>
+            </div>
+
+            {/* Drink List */}
             <div className="mb-8 space-y-3">
-                {displayResults.length > 0 ? displayResults.map((r, i) => {
+                {results.length > 0 ? results.map((r, i) => {
                     const isMissing = r.missing && r.missing.length > 0;
-                    const people = batchSize[r.id] || 1;
-                    const isBatched = people > 1;
+                    const subs = isMissing ? getSubstitutions(r.missing) : [];
+                    const servings = getServings(r.id);
+                    const batch = servings > 1 ? calculateBatch(r.spec, servings, r.batchDilution || 0.2) : null;
 
                     return (
                         <div key={r.id} className={`overflow-hidden rounded-xl border transition-all duration-300 ${expandedId === r.id ? 'shadow-md border-current' : 'border-transparent hover:border-current'} ${itemHover}`}>
@@ -79,7 +96,6 @@ export default function GenerateCard({ onGenerate, results, onReset, mode, theme
                                             {isMissing && <span className="rounded bg-red-100 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-red-700">Missing {r.missing.length}</span>}
                                         </div>
                                         <div className="flex gap-2 text-[10px] uppercase tracking-wider opacity-60">
-                                            {r.flavor && <span className={`text-${theme.accentText} font-bold border-r pr-2 border-inherit`}>{r.flavor}</span>}
                                             {r.tags && r.tags.map(t => <span key={t}>{t}</span>)}
                                         </div>
                                     </div>
@@ -89,76 +105,80 @@ export default function GenerateCard({ onGenerate, results, onReset, mode, theme
 
                             {expandedId === r.id && (
                                 <div className={`p-6 border-t animate-fadeIn ${detailBg} ${mode === 'mocktail' ? 'border-mocktail-100' : 'border-cocktail-700'}`}>
-
-                                    {/* Pantry Substitution Engine */}
+                                    {/* Missing + Substitutions */}
                                     {isMissing && (
-                                        <div className="mb-6 rounded-lg p-4 bg-orange-50 border border-orange-200">
-                                            <div className="flex items-start gap-2 mb-2 text-orange-800">
-                                                <AlertTriangle className="h-5 w-5 shrink-0" />
-                                                <h4 className="font-semibold text-sm">Pantry Substitution Engine</h4>
+                                        <div className="mb-4">
+                                            <div className="flex items-center gap-2 text-xs text-red-500 font-medium mb-2">
+                                                <AlertTriangle className="h-4 w-4" />
+                                                <span>Missing: {r.missing.join(", ")}</span>
                                             </div>
-                                            <ul className="pl-7 text-sm space-y-1 text-orange-900">
-                                                {r.missing.map(m => (
-                                                    <li key={m}>
-                                                        <span className="font-medium decoration-orange-300 underline underline-offset-2">{m}</span> missing.
-                                                        {r.substitution?.[m] ? (
-                                                            <span> Sub with: <b>{r.substitution[m]}</b></span>
-                                                        ) : (
-                                                            <span> Try leaving it out or ask the bartender logic below!</span>
-                                                        )}
-                                                    </li>
-                                                ))}
-                                            </ul>
+                                            {subs.length > 0 && (
+                                                <div className={`ml-2 space-y-2 rounded-lg border p-3 text-xs ${mode === 'mocktail' ? 'border-mocktail-accent/20 bg-white' : 'border-cocktail-700 bg-cocktail-900/50'}`}>
+                                                    <div className="flex items-center gap-1.5 font-bold uppercase tracking-wider opacity-60 mb-1">
+                                                        <RefreshCw className="h-3 w-3" /> Smart Substitutions
+                                                    </div>
+                                                    {subs.map(sub => (
+                                                        <div key={sub.ingredient} className="space-y-1">
+                                                            <div className="font-medium">Instead of <span className={theme.accentText}>{sub.ingredient}</span> <span className="opacity-40">({sub.reason})</span>:</div>
+                                                            {sub.alternatives.map((alt, j) => (
+                                                                <div key={j} className="ml-3 flex items-start gap-1.5">
+                                                                    <ArrowRight className="h-3 w-3 mt-0.5 shrink-0 opacity-40" />
+                                                                    <span><strong>{alt.name}</strong> — {alt.note}</span>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
                                         </div>
                                     )}
 
-                                    {/* Batching Calculator */}
-                                    <div className={`mb-6 flex flex-col md:flex-row gap-4 items-center justify-between p-4 rounded-xl border ${mode === 'mocktail' ? 'bg-white border-black/5' : 'bg-cocktail-900/50 border-cocktail-800'}`}>
-                                        <div className="flex items-center gap-2">
-                                            <Users className="h-5 w-5 opacity-50" />
-                                            <span className="text-sm font-semibold">Scale Recipe:</span>
-                                        </div>
-                                        <div className="flex gap-2">
-                                            {[1, 2, 4, 8].map(num => (
-                                                <button
-                                                    key={num}
-                                                    onClick={() => updateBatch(r.id, num)}
-                                                    className={`w-10 h-10 rounded-lg flex items-center justify-center text-sm font-bold border transition-colors ${people === num ? theme.accent : inputBg}`}
-                                                >
-                                                    {num}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
-
-                                    {/* Calculated Spec Display */}
+                                    {/* Spec */}
                                     <div className="mb-6 space-y-4">
                                         <div>
                                             <h4 className="mb-2 text-xs font-bold uppercase tracking-widest opacity-50">
-                                                {isBatched ? `Batched Measurements (Serves ${people})` : 'Single Serving'}
+                                                {servings > 1 ? `Recipe × ${servings} servings` : 'Ingredients'}
                                             </h4>
-
-                                            {isBatched && r.batchDilution > 0 && (
-                                                <div className="mb-3 flex items-center gap-2 text-sm text-blue-600 bg-blue-50 px-3 py-2 rounded-md border border-blue-100">
-                                                    <Droplets className="h-4 w-4 shrink-0" />
-                                                    <span><b>Crucial Dilution Rule:</b> Add {(r.batchDilution * 100).toFixed(0)}% water when measuring large batches since you omit shaking/stirring with ice.</span>
-                                                </div>
-                                            )}
-
-                                            <ul className={`list-disc pl-4 text-sm leading-relaxed ${detailText}`}>
-                                                {r.spec.split('.').map(s => s.trim()).filter(Boolean).map((line, idx) => {
-                                                    // Ultra simple regex to multiply oz values
-                                                    const batchedLine = isBatched ? line.replace(/([\d.]+)\s*(oz|parts?)/gi, (match, val, unit) => {
-                                                        return `${(parseFloat(val) * people).toFixed(1)} ${unit}`;
-                                                    }) : line;
-
-                                                    return <li key={idx} className="pl-1 py-0.5">{batchedLine}</li>;
-                                                })}
+                                            <ul className={`list-disc pl-4 text-sm leading-relaxed`}>
+                                                {(batch ? batch.scaledSpec : r.spec.split('.').map(s => s.trim()).filter(Boolean)).map((line, idx) => (
+                                                    <li key={idx} className="pl-1">{line}</li>
+                                                ))}
+                                                {batch && batch.waterOz > 0 && (
+                                                    <li className="pl-1 flex items-center gap-1.5">
+                                                        <Droplets className="h-3.5 w-3.5 inline opacity-60" />
+                                                        <strong>{batch.waterOz} oz water</strong> <span className="opacity-50">(dilution — replaces shaking/stirring)</span>
+                                                    </li>
+                                                )}
                                             </ul>
                                         </div>
                                     </div>
 
-                                    {/* Expert Tip */}
+                                    {/* Batch Calculator */}
+                                    <div className={`mb-4 flex items-center gap-3 rounded-lg border p-3 text-sm ${mode === 'mocktail' ? 'border-black/5 bg-white' : 'border-cocktail-700 bg-cocktail-900/50'}`}>
+                                        <Users className={`h-5 w-5 shrink-0 ${theme.accentText}`} />
+                                        <div className="flex-1">
+                                            <div className="text-xs font-bold uppercase tracking-wider opacity-50 mb-1">Batch Calculator</div>
+                                            <div className="flex items-center gap-2">
+                                                {[1, 4, 8, 12].map(n => (
+                                                    <button
+                                                        key={n}
+                                                        onClick={() => setServings(r.id, n)}
+                                                        className={`rounded-lg border px-3 py-1 text-xs font-medium transition-all ${servings === n ? chipActive : chipInactive}`}
+                                                    >
+                                                        {n === 1 ? 'Single' : `× ${n}`}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {batch && batch.waterOz > 0 && (
+                                        <div className={`mb-4 flex gap-2 rounded-lg border p-3 text-xs ${mode === 'mocktail' ? 'border-blue-200 bg-blue-50 text-blue-800' : 'border-blue-900 bg-blue-950/40 text-blue-300'}`}>
+                                            <Droplets className="h-4 w-4 shrink-0" />
+                                            <p><strong>Dilution note:</strong> Add {batch.waterOz} oz of water to your pitcher. This replaces the water that would have melted from ice during individual shaking/stirring. Chill in fridge for 1 hr before serving.</p>
+                                        </div>
+                                    )}
+
+                                    {/* Pro Tip */}
                                     {r.tip && (
                                         <div className={`flex gap-3 rounded-lg border p-3 text-sm ${mode === 'mocktail' ? 'border-mocktail-accent/20 bg-white text-mocktail-text' : 'border-cocktail-accent/30 bg-cocktail-900 text-cocktail-text'}`}>
                                             <Lightbulb className={`h-5 w-5 shrink-0 opacity-80 ${theme.accentText}`} />
@@ -170,24 +190,34 @@ export default function GenerateCard({ onGenerate, results, onReset, mode, theme
                         </div>
                     );
                 }) : (
-                    <div className="py-8 text-center opacity-50 text-sm">No drinks match this flavor profile. Try another!</div>
+                    <div className="py-8 text-center opacity-50 text-sm">No drinks match. Try adding more ingredients or adjusting your flavor filters!</div>
                 )}
             </div>
 
-            {/* AI Control Center */}
+            {/* Controls & Regeneration */}
             <div className={`space-y-4 rounded-2xl p-6 ${mode === 'mocktail' ? 'bg-mocktail-50' : 'bg-cocktail-900/50 border border-cocktail-800'}`}>
                 <div className="space-y-2">
                     <label className="text-xs font-bold uppercase tracking-widest opacity-50">Custom Request (Chef's Brain)</label>
                     <input
                         value={prompt}
                         onChange={e => setPrompt(e.target.value)}
-                        placeholder="E.g., 'spicy', 'refreshing'..."
+                        placeholder="E.g., 'spicy', 'refreshing', 'something complex'..."
                         className={`w-full rounded-xl border px-4 py-3 text-sm outline-none focus:border-current ${inputBg}`}
                     />
                 </div>
+
+                <div className="flex flex-wrap gap-2 text-xs">
+                    <label className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 ${inputBg}`}>
+                        <input type="checkbox" checked={filters.classic} onChange={e => setFilters(p => ({ ...p, classic: e.target.checked }))} /> Classics
+                    </label>
+                    <label className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 ${inputBg}`}>
+                        <input type="checkbox" checked={filters.creative} onChange={e => setFilters(p => ({ ...p, creative: e.target.checked }))} /> Expert Creative
+                    </label>
+                </div>
+
                 <div className="flex flex-col gap-3 pt-2 sm:flex-row">
-                    <button onClick={handleRegen} className={`flex-1 rounded-xl border border-current px-4 py-3 text-sm font-medium hover:opacity-80`}>Regenerate Search</button>
-                    <button onClick={onReset} className="rounded-xl border border-red-500/30 px-4 py-3 text-sm font-medium text-red-500 hover:bg-red-500/10">Reset</button>
+                    <button onClick={handleRegen} className={`flex-1 rounded-xl border border-current px-4 py-3 text-sm font-medium hover:opacity-80`}>Regenerate Menu</button>
+                    <button onClick={onReset} className="rounded-xl border border-red-500/30 px-4 py-3 text-sm font-medium text-red-500 hover:bg-red-500/10">Reset Pantry</button>
                 </div>
             </div>
         </div>

@@ -1,16 +1,15 @@
-// PT Guide App Entry Point
 import React, { useState, useRef } from 'react';
-import { Activity, ShieldAlert, Stethoscope, ChevronRight, AlertTriangle, AlertCircle, RefreshCcw, ActivitySquare } from 'lucide-react';
+import { Activity, ShieldAlert, Stethoscope, ChevronRight, AlertTriangle, AlertCircle, RefreshCcw, Dumbbell } from 'lucide-react';
 import BodySilhouette from './components/BodySilhouette';
 import StepHeader from './components/StepHeader';
 import SeverityBadge from './components/SeverityBadge';
-import ActiveWorkout from './components/ActiveWorkout';
+import ExerciseCard from './components/ExerciseCard';
 import { PAIN_QUALITIES, DURATION_OPTIONS, getRegionLabels, getRegionsForSide } from './data/config';
 import { computeSeverity, makePlan, makeIssues, makeIssuePlan } from './utils/triage';
+import { getExercisesForRegions } from './data/exercises';
 
 export default function App() {
   const [step, setStep] = useState(1);
-  const [activeWorkout, setActiveWorkout] = useState(null);
 
   // State
   const [side, setSide] = useState('front');
@@ -27,24 +26,36 @@ export default function App() {
 
   // Derived Calculations
   const severity = computeSeverity({ intensity, duration, qualities: Array.from(qualities), notes });
-  const regionLabels = getRegionLabels('front', Array.from(selectedRegions)).concat(getRegionLabels('back', Array.from(selectedRegions)));
+  const regionLabels = getRegionLabels('front', Array.from(selectedRegions)).concat(getRegionLabels('back', Array.from(selectedRegions))); // Simplified region gathering
   const plan = makePlan({ severity, regionLabels });
   const issues = makeIssues({ severity, regionLabels, notes, qualities: Array.from(qualities), duration, intensity });
+  const exercises = getExercisesForRegions(regionLabels);
 
-  const activeRegion = Array.from(selectedRegions)[0];
+  const activeRegion = Array.from(selectedRegions)[0]; // Focus on the first selected region for zoom
 
   const handleNext = () => setStep(s => Math.min(s + 1, totalSteps));
   const handleBack = () => setStep(s => Math.max(s - 1, 1));
 
   const toggleRegion = (id) => {
     const next = new Set(selectedRegions);
+    // Enforce single selection style logic if users want "specific" focus for zoom,
+    // although we allow multi-select, zoom targets the first one.
+    // Ideally we clear markers if we change regions significantly?
     if (next.has(id)) next.delete(id);
-    else next.add(id);
+    else {
+      // Optional: clear others if we want single-select? 
+      // User requested "granular... specific part selection".
+      // Let's keep multi-select but just ensure zoom works.
+      next.add(id);
+    }
     setSelectedRegions(next);
-    if (!next.has(activeRegion)) setMarkers([]);
+    if (!next.has(activeRegion)) setMarkers([]); // Clear markers if active region removed
   };
 
   const handleRegionSelect = (id) => {
+    // Revert to single selection behavior for better UX with Zoom/Pinpoint feature
+    // or just add to set.
+    // Let's force single selection for the main interaction to match the original "Pinpoint" flow perfectly.
     const next = new Set();
     next.add(id);
     setSelectedRegions(next);
@@ -80,20 +91,8 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans selection:bg-blue-100 selection:text-blue-900 relative">
-
-      {/* Active Workout Overlay */}
-      {activeWorkout && (
-        <ActiveWorkout
-          rootExerciseId={activeWorkout}
-          onComplete={() => setActiveWorkout(null)}
-          onExit={() => setActiveWorkout(null)}
-        />
-      )}
-
-      {/* Main Content */}
-      <div className={`mx-auto max-w-4xl px-6 py-12 md:py-20 ${activeWorkout ? 'hidden' : ''}`}>
-
+    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans selection:bg-blue-100 selection:text-blue-900">
+      <div className="mx-auto max-w-4xl px-6 py-12 md:py-20">
         {/* Header Logo */}
         <div className="mb-12 flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600 text-white shadow-lg shadow-blue-200">
@@ -312,25 +311,8 @@ export default function App() {
               <div className="animate-fadeIn -m-8 md:-m-10">
                 {/* Header Results */}
                 <div className={`px-8 pt-10 pb-16 md:px-10 ${severity === 'orange' ? 'bg-orange-50' : severity === 'yellow' ? 'bg-yellow-50' : 'bg-green-50'}`}>
-                  <div className="flex justify-between items-start mb-6">
+                  <div className="mb-6">
                     <SeverityBadge severity={severity} />
-                    {/* Launch Active Recovery Button */}
-                    {severity !== 'orange' && (
-                      <button
-                        onClick={() => {
-                          // If it's knee/leg, let's load squat. If torso/back, plank. If arm/chest, pushup
-                          let ex = "squat";
-                          const p = plan.title.toLowerCase();
-                          const l = regionLabels.join("").toLowerCase();
-                          if (l.includes("bag") || l.includes("torso") || l.includes("back") || p.includes("core")) ex = "plank";
-                          if (l.includes("arm") || l.includes("shoulder") || p.includes("upper")) ex = "push-up";
-                          setActiveWorkout(ex);
-                        }}
-                        className="flex items-center gap-2 bg-slate-900 hover:bg-slate-800 text-white px-4 py-2 rounded-xl font-bold shadow-md shadow-slate-200 transition-transform active:scale-95 text-sm"
-                      >
-                        <ActivitySquare className="w-4 h-4" /> Start Recovery
-                      </button>
-                    )}
                   </div>
                   <h2 className="text-3xl font-bold tracking-tight text-slate-900 mb-2">{plan.title}</h2>
                   <p className="text-slate-600 leading-relaxed max-w-lg">{plan.steps[0]}</p>
@@ -373,6 +355,35 @@ export default function App() {
                           </div>
                         ))}
                       </div>
+                    </div>
+                  )}
+
+                  {/* Exercise Routine with Contextual Modifications */}
+                  {exercises.length > 0 && severity !== 'orange' && (
+                    <div className="mt-8">
+                      <div className="flex items-center gap-2 mb-4">
+                        <Dumbbell className="h-5 w-5 text-blue-600" />
+                        <h3 className="text-sm font-bold uppercase tracking-widest text-slate-500">Your Exercise Routine</h3>
+                      </div>
+                      <div className="mb-3 flex gap-3 rounded-lg border border-blue-100 bg-blue-50 p-3 text-xs text-blue-800">
+                        <ShieldAlert className="h-4 w-4 shrink-0 mt-0.5" />
+                        <p>Each exercise shows <strong className="text-emerald-700">expected sensations</strong> (green) and <strong className="text-red-600">stop signals</strong> (red). If an exercise hurts, tap <strong>"Make Easier"</strong> for a safer version.</p>
+                      </div>
+                      <div className="space-y-3">
+                        {exercises.map(ex => (
+                          <ExerciseCard key={ex.id} exercise={ex} />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {severity === 'orange' && (
+                    <div className="mt-8 rounded-xl border border-orange-200 bg-orange-50 p-5">
+                      <div className="flex items-center gap-2 mb-2">
+                        <AlertTriangle className="h-5 w-5 text-orange-600" />
+                        <h3 className="text-sm font-bold uppercase tracking-widest text-orange-700">Exercises On Hold</h3>
+                      </div>
+                      <p className="text-sm text-orange-800 leading-relaxed">Based on your symptom profile, we recommend a clinical evaluation <strong>before</strong> starting an exercise routine. A physical therapist can design a safe, individualized program for you after a hands-on assessment.</p>
                     </div>
                   )}
 
