@@ -2,16 +2,9 @@ import React, { useMemo } from 'react';
 import { RANKS_ASC, SUITS, SUIT_SYMBOL, COLOR, label } from '../utils/poker';
 
 /**
- * Flop card picker — same card-grid layout as turn/river.
- * Pick up to 3 cards. Once all 3 are selected, hides grid and shows them larger
- * with a "Change" button.
- *
- * Props:
- *  - cards: [string, string, string] — card keys (can be empty strings)
- *  - setCards: (index, cardKey) => void
- *  - usedCards: Set of card keys to disable (hole cards + other board cards)
- *  - showGrid: boolean
- *  - setShowGrid: (bool) => void
+ * Flop card picker — card grid with fixed-height tile.
+ * Selected cards fill the top area, grid sits at the bottom.
+ * Height is locked to prevent any tile movement.
  */
 export default function FlopPicker({
     cards, setCards,
@@ -21,7 +14,6 @@ export default function FlopPicker({
     const selectedCount = cards.filter(Boolean).length;
     const allSelected = selectedCount === 3;
 
-    // Combine usedCards + already-selected flop cards for disabling
     const allUsed = useMemo(() => {
         const s = new Set(usedCards);
         cards.forEach(k => { if (k) s.add(k); });
@@ -29,11 +21,9 @@ export default function FlopPicker({
     }, [usedCards, cards]);
 
     const handleCardClick = (k) => {
-        // Find the first empty slot
         const emptyIdx = cards.findIndex(c => !c);
         if (emptyIdx !== -1) {
             setCards(emptyIdx, k);
-            // Auto-hide after picking the 3rd card
             if (emptyIdx === 2 || cards.filter(Boolean).length === 2) {
                 setShowGrid(false);
             }
@@ -49,7 +39,7 @@ export default function FlopPicker({
 
     const renderCard = (cardKey) => {
         if (!cardKey) return (
-            <div className="inline-flex items-center justify-center w-14 h-20 rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 text-slate-300 text-sm">
+            <div className="inline-flex items-center justify-center w-14 h-20 rounded-xl border-2 border-dashed border-slate-200 bg-slate-50/50 text-slate-300 text-sm">
                 —
             </div>
         );
@@ -66,7 +56,8 @@ export default function FlopPicker({
     };
 
     return (
-        <div>
+        /* Fixed-height container */
+        <div style={{ minHeight: '240px' }}>
             <div className="flex items-center justify-between mb-2">
                 <div className="text-sm font-semibold text-slate-600">Choose the flop</div>
                 {allSelected && !showGrid && (
@@ -77,26 +68,18 @@ export default function FlopPicker({
                 )}
             </div>
 
-            {/* Selected cards display (when all 3 picked and grid hidden) */}
-            {allSelected && !showGrid && (
-                <div className="flex items-center gap-3 justify-center py-2">
-                    {cards.map((c, i) => <div key={i}>{renderCard(c)}</div>)}
-                </div>
-            )}
+            {/* Always-visible selected cards area — 3 slots */}
+            <div className="flex items-center gap-3 justify-center" style={{ minHeight: '88px' }}>
+                {cards.map((c, i) => <div key={i}>{renderCard(c)}</div>)}
+            </div>
 
-            {/* Card grid (visible when picking or changing) */}
-            {showGrid && (
-                <div>
-                    {/* Show partially-selected cards above the grid */}
-                    {selectedCount > 0 && (
-                        <div className="flex items-center gap-2 mb-2 justify-center">
-                            {cards.map((c, i) => <div key={i}>{renderCard(c)}</div>)}
-                        </div>
-                    )}
-                    <div className="text-xs text-slate-400 mb-1.5">
+            {/* Card grid at the bottom */}
+            {showGrid ? (
+                <div className="mt-1">
+                    <div className="text-xs text-slate-400 mb-1">
                         {selectedCount === 0 ? "Pick first flop card" : selectedCount === 1 ? "Pick second flop card" : "Pick third flop card"}
                     </div>
-                    <div className="overflow-x-auto">
+                    <div className="overflow-x-auto" style={{ maxWidth: '55%' }}>
                         <div className="grid gap-0.5" style={{ gridTemplateColumns: `repeat(13, minmax(0, 1fr))` }}>
                             {SUITS.map(s =>
                                 RANKS_ASC.map(r => {
@@ -108,7 +91,7 @@ export default function FlopPicker({
                                             key={k}
                                             disabled={disabled || isSelected}
                                             onClick={() => handleCardClick(k)}
-                                            className={`py-1 px-0.5 rounded text-xs font-semibold transition-all border
+                                            className={`py-1.5 px-0.5 rounded text-[13px] font-semibold transition-all border
                         ${isSelected
                                                     ? "bg-emerald-600 text-white border-emerald-700 shadow-sm"
                                                     : disabled
@@ -126,6 +109,8 @@ export default function FlopPicker({
                         </div>
                     </div>
                 </div>
+            ) : (
+                <div style={{ minHeight: '110px' }} />
             )}
         </div>
     );

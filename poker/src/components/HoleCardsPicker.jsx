@@ -1,19 +1,10 @@
-import React, { useState, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { RANKS_ASC, SUITS, SUIT_SYMBOL, COLOR, label } from '../utils/poker';
 
 /**
- * Hole card picker using the same card-grid layout as turn/river.
- * User picks 2 cards from the 4×13 grid. Once both are selected,
- * the grid hides and shows the two cards larger with a "Change" button.
- *
- * Props:
- *  - card1: card key string like "As" or ""
- *  - card2: card key string like "Kh" or ""
- *  - setCard1: (key) => void
- *  - setCard2: (key) => void
- *  - usedCards: Set of card keys to disable (from board)
- *  - showGrid: boolean (controlled externally so fold/new round can reset)
- *  - setShowGrid: (bool) => void
+ * Hole card picker — 4×13 card grid.
+ * Fixed-height tile: grid always occupies the bottom, selected cards shown at top.
+ * No height change when cards are selected/deselected.
  */
 export default function HoleCardsPicker({
     card1, card2, setCard1, setCard2,
@@ -22,7 +13,6 @@ export default function HoleCardsPicker({
 }) {
     const bothSelected = !!(card1 && card2);
 
-    // Cards used by the OTHER hole card (so you can't pick the same card twice)
     const holeUsed = useMemo(() => {
         const s = new Set(usedCards);
         if (card1) s.add(card1);
@@ -35,9 +25,8 @@ export default function HoleCardsPicker({
             setCard1(k);
         } else if (!card2) {
             setCard2(k);
-            setShowGrid(false); // auto-hide grid after picking both
+            setShowGrid(false);
         } else {
-            // Both selected but grid is showing (via "Change") — restart
             setCard1(k);
             setCard2("");
         }
@@ -50,7 +39,11 @@ export default function HoleCardsPicker({
     };
 
     const renderCard = (cardKey) => {
-        if (!cardKey) return null;
+        if (!cardKey) return (
+            <div className="inline-flex items-center justify-center w-14 h-20 rounded-xl border-2 border-dashed border-slate-200 bg-slate-50/50 text-slate-300 text-sm">
+                —
+            </div>
+        );
         const r = cardKey.slice(0, -1);
         const s = cardKey[cardKey.length - 1];
         return (
@@ -64,7 +57,8 @@ export default function HoleCardsPicker({
     };
 
     return (
-        <div>
+        /* Fixed-height container — tall enough for header + selected cards + grid */
+        <div style={{ minHeight: '220px' }}>
             <div className="flex items-center justify-between mb-2">
                 <div className="text-sm font-semibold text-slate-600">Choose your cards</div>
                 {bothSelected && !showGrid && (
@@ -75,21 +69,28 @@ export default function HoleCardsPicker({
                 )}
             </div>
 
-            {/* Selected cards display (when both picked and grid hidden) */}
-            {bothSelected && !showGrid && (
-                <div className="flex items-center gap-3 justify-center py-2">
-                    {renderCard(card1)}
-                    {renderCard(card2)}
-                </div>
-            )}
+            {/* Always-visible selected cards area (fixed height reservation) */}
+            <div className="flex items-center gap-3 justify-center" style={{ minHeight: '88px' }}>
+                {bothSelected && !showGrid ? (
+                    <>
+                        {renderCard(card1)}
+                        {renderCard(card2)}
+                    </>
+                ) : showGrid ? (
+                    <>
+                        {renderCard(card1 || null)}
+                        {renderCard(card2 || null)}
+                    </>
+                ) : null}
+            </div>
 
-            {/* Card grid (visible when picking or changing) */}
-            {showGrid && (
-                <div>
-                    <div className="text-xs text-slate-400 mb-1.5">
+            {/* Card grid — always takes bottom space */}
+            {showGrid ? (
+                <div className="mt-1">
+                    <div className="text-xs text-slate-400 mb-1">
                         {!card1 ? "Pick your first card" : !card2 ? "Pick your second card" : "Pick your first card"}
                     </div>
-                    <div className="overflow-x-auto">
+                    <div className="overflow-x-auto" style={{ maxWidth: '55%' }}>
                         <div className="grid gap-0.5" style={{ gridTemplateColumns: `repeat(13, minmax(0, 1fr))` }}>
                             {SUITS.map(s =>
                                 RANKS_ASC.map(r => {
@@ -101,7 +102,7 @@ export default function HoleCardsPicker({
                                             key={k}
                                             disabled={disabled}
                                             onClick={() => handleCardClick(k)}
-                                            className={`py-1 px-0.5 rounded text-xs font-semibold transition-all border
+                                            className={`py-1.5 px-0.5 rounded text-[13px] font-semibold transition-all border
                         ${selected
                                                     ? "bg-indigo-600 text-white border-indigo-700 shadow-sm"
                                                     : disabled
@@ -119,6 +120,9 @@ export default function HoleCardsPicker({
                         </div>
                     </div>
                 </div>
+            ) : (
+                /* Invisible spacer — same height as the grid would take */
+                <div style={{ minHeight: '110px' }} />
             )}
         </div>
     );
