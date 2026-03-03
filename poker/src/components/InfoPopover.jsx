@@ -33,9 +33,19 @@ export default function InfoPopover({ insightId, openPopoverId, setOpenPopoverId
                 i
             </button>
             {isOpen && (
-                <div className="absolute right-0 top-8 z-50 w-72 p-3 bg-white rounded-xl shadow-lg border border-slate-200 text-left animate-in fade-in duration-100">
-                    <div className="text-sm font-semibold text-slate-800 mb-1">{entry.title}</div>
-                    <div className="text-xs text-slate-500 leading-relaxed">{entry.body}</div>
+                <div className="absolute right-0 top-8 z-50 w-90 max-w-[90vw] p-4 bg-white rounded-xl shadow-lg border border-slate-200 text-left animate-in fade-in duration-100">
+                    <div className="text-sm font-semibold text-slate-800 mb-1.5">{entry.title}</div>
+                    <div className="text-[13px] text-slate-500 leading-relaxed whitespace-pre-line">{entry.body}</div>
+                    {entry.glossary && (
+                        <div className="mt-3 pt-2.5 border-t border-slate-100">
+                            <div className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1.5">Key terms</div>
+                            {entry.glossary.map((g, i) => (
+                                <div key={i} className="text-[13px] text-slate-500 mb-1.5 last:mb-0">
+                                    <span className="font-semibold text-slate-700">{g.term}:</span> {g.def}
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
             )}
         </div>

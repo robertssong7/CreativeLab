@@ -1,56 +1,58 @@
-import React, { useState, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { RANKS_ASC, SUITS, SUIT_SYMBOL, COLOR, label } from '../utils/poker';
 
 /**
- * Hole card picker using the same card-grid layout as turn/river.
- * User picks 2 cards from the 4×13 grid. Once both are selected,
- * the grid hides and shows the two cards larger with a "Change" button.
+ * Flop card picker — same card-grid layout as turn/river.
+ * Pick up to 3 cards. Once all 3 are selected, hides grid and shows them larger
+ * with a "Change" button.
  *
  * Props:
- *  - card1: card key string like "As" or ""
- *  - card2: card key string like "Kh" or ""
- *  - setCard1: (key) => void
- *  - setCard2: (key) => void
- *  - usedCards: Set of card keys to disable (from board)
- *  - showGrid: boolean (controlled externally so fold/new round can reset)
+ *  - cards: [string, string, string] — card keys (can be empty strings)
+ *  - setCards: (index, cardKey) => void
+ *  - usedCards: Set of card keys to disable (hole cards + other board cards)
+ *  - showGrid: boolean
  *  - setShowGrid: (bool) => void
  */
-export default function HoleCardsPicker({
-    card1, card2, setCard1, setCard2,
+export default function FlopPicker({
+    cards, setCards,
     usedCards = new Set(),
     showGrid, setShowGrid
 }) {
-    const bothSelected = !!(card1 && card2);
+    const selectedCount = cards.filter(Boolean).length;
+    const allSelected = selectedCount === 3;
 
-    // Cards used by the OTHER hole card (so you can't pick the same card twice)
-    const holeUsed = useMemo(() => {
+    // Combine usedCards + already-selected flop cards for disabling
+    const allUsed = useMemo(() => {
         const s = new Set(usedCards);
-        if (card1) s.add(card1);
-        if (card2) s.add(card2);
+        cards.forEach(k => { if (k) s.add(k); });
         return s;
-    }, [usedCards, card1, card2]);
+    }, [usedCards, cards]);
 
     const handleCardClick = (k) => {
-        if (!card1) {
-            setCard1(k);
-        } else if (!card2) {
-            setCard2(k);
-            setShowGrid(false); // auto-hide grid after picking both
-        } else {
-            // Both selected but grid is showing (via "Change") — restart
-            setCard1(k);
-            setCard2("");
+        // Find the first empty slot
+        const emptyIdx = cards.findIndex(c => !c);
+        if (emptyIdx !== -1) {
+            setCards(emptyIdx, k);
+            // Auto-hide after picking the 3rd card
+            if (emptyIdx === 2 || cards.filter(Boolean).length === 2) {
+                setShowGrid(false);
+            }
         }
     };
 
     const handleChange = () => {
-        setCard1("");
-        setCard2("");
+        setCards(0, "");
+        setCards(1, "");
+        setCards(2, "");
         setShowGrid(true);
     };
 
     const renderCard = (cardKey) => {
-        if (!cardKey) return null;
+        if (!cardKey) return (
+            <div className="inline-flex items-center justify-center w-14 h-20 rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 text-slate-300 text-sm">
+                —
+            </div>
+        );
         const r = cardKey.slice(0, -1);
         const s = cardKey[cardKey.length - 1];
         return (
@@ -66,8 +68,8 @@ export default function HoleCardsPicker({
     return (
         <div>
             <div className="flex items-center justify-between mb-2">
-                <div className="text-sm font-semibold text-slate-600">Choose your cards</div>
-                {bothSelected && !showGrid && (
+                <div className="text-sm font-semibold text-slate-600">Choose the flop</div>
+                {allSelected && !showGrid && (
                     <button
                         onClick={handleChange}
                         className="text-xs px-2 py-1 rounded-lg border border-slate-200 text-slate-400 hover:bg-white hover:text-slate-600 transition-colors"
@@ -75,40 +77,45 @@ export default function HoleCardsPicker({
                 )}
             </div>
 
-            {/* Selected cards display (when both picked and grid hidden) */}
-            {bothSelected && !showGrid && (
+            {/* Selected cards display (when all 3 picked and grid hidden) */}
+            {allSelected && !showGrid && (
                 <div className="flex items-center gap-3 justify-center py-2">
-                    {renderCard(card1)}
-                    {renderCard(card2)}
+                    {cards.map((c, i) => <div key={i}>{renderCard(c)}</div>)}
                 </div>
             )}
 
             {/* Card grid (visible when picking or changing) */}
             {showGrid && (
                 <div>
+                    {/* Show partially-selected cards above the grid */}
+                    {selectedCount > 0 && (
+                        <div className="flex items-center gap-2 mb-2 justify-center">
+                            {cards.map((c, i) => <div key={i}>{renderCard(c)}</div>)}
+                        </div>
+                    )}
                     <div className="text-xs text-slate-400 mb-1.5">
-                        {!card1 ? "Pick your first card" : !card2 ? "Pick your second card" : "Pick your first card"}
+                        {selectedCount === 0 ? "Pick first flop card" : selectedCount === 1 ? "Pick second flop card" : "Pick third flop card"}
                     </div>
                     <div className="overflow-x-auto">
                         <div className="grid gap-0.5" style={{ gridTemplateColumns: `repeat(13, minmax(0, 1fr))` }}>
                             {SUITS.map(s =>
                                 RANKS_ASC.map(r => {
                                     const k = `${r}${s}`;
-                                    const disabled = holeUsed.has(k) && k !== card1 && k !== card2;
-                                    const selected = card1 === k || card2 === k;
+                                    const isSelected = cards.includes(k);
+                                    const disabled = allUsed.has(k) && !isSelected;
                                     return (
                                         <button
                                             key={k}
-                                            disabled={disabled}
+                                            disabled={disabled || isSelected}
                                             onClick={() => handleCardClick(k)}
                                             className={`py-1 px-0.5 rounded text-xs font-semibold transition-all border
-                        ${selected
-                                                    ? "bg-indigo-600 text-white border-indigo-700 shadow-sm"
+                        ${isSelected
+                                                    ? "bg-emerald-600 text-white border-emerald-700 shadow-sm"
                                                     : disabled
                                                         ? "opacity-15 cursor-not-allowed border-slate-100 bg-slate-50 text-slate-300"
                                                         : "border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-400 cursor-pointer"
                                                 }`}
-                                            style={!selected && !disabled ? { color: COLOR(s) } : undefined}
+                                            style={!isSelected && !disabled ? { color: COLOR(s) } : undefined}
                                             title={label(r, s)}
                                         >
                                             {r === "T" ? "10" : r}{SUIT_SYMBOL[s]}

@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import {
-  RAND, RANKS_ASC, RANKS_DESC, SUITS, COLOR, label, idx,
+  RANKS_ASC, RANKS_DESC, SUITS, COLOR, label, idx,
   chenScore, huFromChen, mwFromHU, confFromP,
   OPEN_THR, seatNames, posKey, preflopAdvice,
   evalBoard, streetAdvice
@@ -9,6 +9,7 @@ import {
 import TopControlsRow from './components/TopControlsRow';
 import StreetSection from './components/StreetSection';
 import HoleCardsPicker from './components/HoleCardsPicker';
+import FlopPicker from './components/FlopPicker';
 import SingleCardPicker from './components/SingleCardPicker';
 import InsightsPanel from './components/InsightsPanel';
 import MatrixPanel from './components/MatrixPanel';
@@ -21,15 +22,16 @@ export default function App() {
   const [players, setPlayers] = useState(6);
   const [seats, setSeats] = useState(1);
 
-  // ── Hole cards: dual-mode ──
-  const [holeMode, setHoleMode] = useState("abstract");
-  const [holeAbstract, setHoleAbstract] = useState({ r1: "A", r2: "K", suitedness: "o" });
-  const [holeExact, setHoleExact] = useState(null);
+  // ── Hole cards (exact card keys) ──
+  const [holeCard1, setHoleCard1] = useState("");
+  const [holeCard2, setHoleCard2] = useState("");
+  const [holeShowGrid, setHoleShowGrid] = useState(true);
 
-  // ── Board ──
-  const [f1, setF1] = useState("");
-  const [f2, setF2] = useState("");
-  const [f3, setF3] = useState("");
+  // ── Flop ──
+  const [flopCards, setFlopCards] = useState(["", "", ""]);
+  const [flopShowGrid, setFlopShowGrid] = useState(true);
+
+  // ── Turn / River ──
   const [t, setT] = useState("");
   const [r, setR] = useState("");
 
@@ -39,57 +41,70 @@ export default function App() {
   // ── Deck helper ──
   const DECK = useMemo(() => RANKS_ASC.flatMap(r => SUITS.map(s => ({ r, s }))), []);
   const key = (c) => c ? `${c.r}${c.s}` : "";
-  const find = (k) => DECK.find(x => key(x) === k) || null;
+  const find = (k) => k ? (DECK.find(x => key(x) === k) || null) : null;
 
-  // ── Synthesize c1/c2 for poker logic ──
-  // In abstract mode we create representative cards from the abstract selection.
-  // In exact mode we use the actual cards.
-  const { c1, c2 } = useMemo(() => {
-    if (holeMode === "exact" && holeExact) {
-      return { c1: holeExact.c1, c2: holeExact.c2 };
-    }
-    if (holeAbstract) {
-      const { r1, r2, suitedness } = holeAbstract;
-      if (suitedness === "s") return { c1: { r: r1, s: "s" }, c2: { r: r2, s: "s" } };
-      if (suitedness === "p") return { c1: { r: r1, s: "s" }, c2: { r: r2, s: "h" } };
-      return { c1: { r: r1, s: "s" }, c2: { r: r2, s: "h" } }; // offsuit
-    }
-    return { c1: { r: "A", s: "s" }, c2: { r: "K", s: "h" } };
-  }, [holeMode, holeExact, holeAbstract]);
+  // ── Parse hole card keys into card objects ──
+  const c1 = useMemo(() => find(holeCard1), [holeCard1]);
+  const c2 = useMemo(() => find(holeCard2), [holeCard2]);
 
   // ── Board card objects ──
-  const f1c = useMemo(() => find(f1), [f1]);
-  const f2c = useMemo(() => find(f2), [f2]);
-  const f3c = useMemo(() => find(f3), [f3]);
+  const f1c = useMemo(() => find(flopCards[0]), [flopCards]);
+  const f2c = useMemo(() => find(flopCards[1]), [flopCards]);
+  const f3c = useMemo(() => find(flopCards[2]), [flopCards]);
   const tc = useMemo(() => find(t), [t]);
   const rc = useMemo(() => find(r), [r]);
 
-  // ── usedCardsSet ──
+  // ── usedCardsSet (always includes hole + board) ──
   const usedCards = useMemo(() => {
     const set = new Set();
-    // Board cards always
-    [f1, f2, f3, t, r].forEach(k => { if (k) set.add(k); });
-    // Hole cards only in exact mode
-    if (holeMode === "exact" && holeExact) {
-      set.add(key(holeExact.c1));
-      set.add(key(holeExact.c2));
-    }
+    if (holeCard1) set.add(holeCard1);
+    if (holeCard2) set.add(holeCard2);
+    flopCards.forEach(k => { if (k) set.add(k); });
+    if (t) set.add(t);
+    if (r) set.add(r);
     return set;
-  }, [holeMode, holeExact, f1, f2, f3, t, r]);
+  }, [holeCard1, holeCard2, flopCards, t, r]);
+
+  // ── Hole cards used set (for flop picker — only hole cards) ──
+  const holeUsedForFlop = useMemo(() => {
+    const set = new Set();
+    if (holeCard1) set.add(holeCard1);
+    if (holeCard2) set.add(holeCard2);
+    return set;
+  }, [holeCard1, holeCard2]);
+
+  // ── Has valid hole cards ──
+  const hasHoleCards = !!(c1 && c2);
 
   // ── Preflop computations ──
-  const sc = useMemo(() => chenScore(c1, c2), [c1, c2]);
-  const hu0 = useMemo(() => huFromChen(sc), [sc]);
+  const sc = useMemo(() => hasHoleCards ? chenScore(c1, c2) : null, [c1, c2, hasHoleCards]);
+  const hu0 = useMemo(() => sc != null ? huFromChen(sc) : null, [sc]);
   const mw0 = useMemo(() => mwFromHU(hu0, players), [hu0, players]);
   const pk = useMemo(() => posKey(players, seats), [players, seats]);
   const seatName = useMemo(() => seatNames(players)[((seats % players) + players) % players], [players, seats]);
-  const adv0 = useMemo(() => preflopAdvice(sc, pk, players), [sc, pk, players]);
+  const adv0 = useMemo(() => sc != null ? preflopAdvice(sc, pk, players) : null, [sc, pk, players]);
   const conf0 = useMemo(() => confFromP(hu0), [hu0]);
 
   // ── Board eval ──
-  const flop = useMemo(() => (f1c && f2c && f3c && new Set([key(c1), key(c2), key(f1c), key(f2c), key(f3c)]).size === 5) ? [f1c, f2c, f3c] : null, [c1, c2, f1c, f2c, f3c]);
-  const turn = useMemo(() => (flop && tc && !new Set([key(c1), key(c2), key(f1c), key(f2c), key(f3c)]).has(key(tc))) ? [...flop, tc] : null, [flop, tc, c1, c2, f1c, f2c, f3c]);
-  const riv = useMemo(() => (turn && rc && !new Set([key(c1), key(c2), key(f1c), key(f2c), key(f3c), key(tc || { r: "", s: "" })]).has(key(rc))) ? [...turn, rc] : null, [turn, rc, c1, c2, f1c, f2c, f3c, tc]);
+  const flop = useMemo(() => {
+    if (!hasHoleCards || !f1c || !f2c || !f3c) return null;
+    if (new Set([key(c1), key(c2), key(f1c), key(f2c), key(f3c)]).size !== 5) return null;
+    return [f1c, f2c, f3c];
+  }, [c1, c2, f1c, f2c, f3c, hasHoleCards]);
+
+  const turn = useMemo(() => {
+    if (!flop || !tc) return null;
+    const used = new Set([key(c1), key(c2), key(f1c), key(f2c), key(f3c)]);
+    if (used.has(key(tc))) return null;
+    return [...flop, tc];
+  }, [flop, tc, c1, c2, f1c, f2c, f3c]);
+
+  const riv = useMemo(() => {
+    if (!turn || !rc) return null;
+    const used = new Set([key(c1), key(c2), key(f1c), key(f2c), key(f3c), key(tc || { r: "", s: "" })]);
+    if (used.has(key(rc))) return null;
+    return [...turn, rc];
+  }, [turn, rc, c1, c2, f1c, f2c, f3c, tc]);
 
   const flEval = useMemo(() => flop ? evalBoard([c1, c2], flop) : null, [c1, c2, flop]);
   const tuEval = useMemo(() => turn ? evalBoard([c1, c2], turn) : null, [c1, c2, turn]);
@@ -111,46 +126,49 @@ export default function App() {
   // ── Matrix grid ──
   const grid = useMemo(() => {
     const g = [];
-    for (let r = 0; r < RANKS_DESC.length; r++) {
-      g[r] = [];
-      for (let c = 0; c < RANKS_DESC.length; c++) {
-        const a = { r: RANKS_DESC[r], s: "s" };
-        const b = { r: RANKS_DESC[c], s: (r < c ? "s" : "h") };
+    for (let ri = 0; ri < RANKS_DESC.length; ri++) {
+      g[ri] = [];
+      for (let ci = 0; ci < RANKS_DESC.length; ci++) {
+        const a = { r: RANKS_DESC[ri], s: "s" };
+        const b = { r: RANKS_DESC[ci], s: (ri < ci ? "s" : "h") };
         const scc = chenScore(a, b);
-        g[r][c] = preflopAdvice(scc, pk, players).label;
+        g[ri][ci] = preflopAdvice(scc, pk, players).label;
       }
     }
     return g;
   }, [pk, players]);
 
-  // ── New round ──
+  // ── New round / Fold ──
   const newRound = useCallback(() => {
-    setF1(""); setF2(""); setF3(""); setT(""); setR("");
+    setHoleCard1("");
+    setHoleCard2("");
+    setHoleShowGrid(true);
+    setFlopCards(["", "", ""]);
+    setFlopShowGrid(true);
+    setT("");
+    setR("");
     setSeats(s => (s - 1 + players) % Math.max(1, players));
-    setHoleAbstract(null);
-    setHoleExact(null);
     setStage(0);
   }, [players]);
 
-  // ── Flop card used set (for dropdown disabling) ──
-  const flopUsedCards = useMemo(() => {
-    const set = new Set();
-    if (holeMode === "exact" && holeExact) {
-      set.add(key(holeExact.c1));
-      set.add(key(holeExact.c2));
-    }
-    [f1, f2, f3].forEach(k => { if (k) set.add(k); });
-    return set;
-  }, [holeMode, holeExact, f1, f2, f3]);
+  // ── Flop card setter ──
+  const setFlopCard = useCallback((index, value) => {
+    setFlopCards(prev => {
+      const next = [...prev];
+      next[index] = value;
+      return next;
+    });
+  }, []);
 
-  // ── Has valid hole cards selected ──
-  const hasHoleCards = !!(holeAbstract || holeExact);
+  // For matrix highlighting, provide fallback cards
+  const matrixC1 = c1 || { r: "A", s: "s" };
+  const matrixC2 = c2 || { r: "K", s: "h" };
 
   return (
     <div className="p-5 max-w-4xl mx-auto min-h-screen">
       <h1 className="text-2xl font-bold mb-3 text-slate-900">Poker GTO Lite</h1>
 
-      {/* ======= 1.1 Top Controls Row ======= */}
+      {/* ======= Top Controls Row ======= */}
       <TopControlsRow
         players={players} setPlayers={setPlayers}
         seats={seats} setSeats={setSeats}
@@ -158,15 +176,15 @@ export default function App() {
         openPopoverId={openPopoverId} setOpenPopoverId={setOpenPopoverId}
       />
 
-      {/* ======= 1.2 Preflop Section (two-column) ======= */}
+      {/* ======= Preflop Section (two-column) ======= */}
       <StreetSection
         bgClass="bg-indigo-50" borderClass="border-indigo-100"
         leftPanel={
           <HoleCardsPicker
-            holeMode={holeMode} setHoleMode={setHoleMode}
-            holeAbstract={holeAbstract} setHoleAbstract={setHoleAbstract}
-            holeExact={holeExact} setHoleExact={setHoleExact}
-            usedCards={usedCards}
+            card1={holeCard1} card2={holeCard2}
+            setCard1={setHoleCard1} setCard2={setHoleCard2}
+            usedCards={new Set([...flopCards.filter(Boolean), t, r].filter(Boolean))}
+            showGrid={holeShowGrid} setShowGrid={setHoleShowGrid}
           />
         }
         rightPanel={
@@ -193,43 +211,22 @@ export default function App() {
         }
       />
 
-      {/* ======= 1.3 Flop Section (keep as-is dimensions) ======= */}
+      {/* ======= Flop Section (card grid) ======= */}
       {stage >= 1 && (
         <div className="p-4 mt-4 bg-white rounded-2xl border border-slate-200 shadow-sm">
-          <div className="text-sm font-semibold text-slate-600">Choose the flop</div>
-          <div className="grid md:grid-cols-3 gap-2 mt-1">
-            {[
-              { val: f1, set: setF1, prefix: "f1", card: f1c },
-              { val: f2, set: setF2, prefix: "f2", card: f2c },
-              { val: f3, set: setF3, prefix: "f3", card: f3c }
-            ].map(({ val, set, prefix, card }) => (
-              <select
-                key={prefix}
-                value={card ? key(card) : ""}
-                onChange={e => set(e.target.value)}
-                className="border border-slate-300 bg-slate-50 rounded-xl p-1 h-28 text-lg text-center focus:ring-2 focus:ring-indigo-500 outline-none"
-                style={{ color: card ? COLOR(card.s) : undefined }}
-              >
-                <option value="">—</option>
-                {RANKS_ASC.flatMap(rank => SUITS.map(suit => {
-                  const k = `${rank}${suit}`;
-                  const disabled = flopUsedCards.has(k) && k !== (card ? key(card) : "");
-                  return (
-                    <option key={`${prefix}${k}`} value={k} disabled={disabled} style={{ color: COLOR(suit) }}>
-                      {label(rank, suit)}
-                    </option>
-                  );
-                }))}
-              </select>
-            ))}
-          </div>
+          <FlopPicker
+            cards={flopCards}
+            setCards={setFlopCard}
+            usedCards={holeUsedForFlop}
+            showGrid={flopShowGrid} setShowGrid={setFlopShowGrid}
+          />
           {flop && (
             <div className="text-xs mt-2 text-slate-500">
               Detected: <span className="text-slate-900 font-medium">{flEval?.made}</span>
               {flEval?.notes?.length ? ` • ${flEval.notes.join(', ')}` : ''}
             </div>
           )}
-          {/* Flop insights inline (not two-column per spec: flop stays as-is) */}
+          {/* Flop insights */}
           <div className="mt-2 p-3 bg-slate-50 rounded-2xl border border-slate-200">
             <InsightsPanel
               street="flop"
@@ -248,7 +245,7 @@ export default function App() {
         </div>
       )}
 
-      {/* ======= 1.4 Turn Section (two-column) ======= */}
+      {/* ======= Turn Section (two-column, untouched) ======= */}
       {stage >= 2 && (
         <StreetSection
           leftPanel={
@@ -279,7 +276,7 @@ export default function App() {
         />
       )}
 
-      {/* ======= 1.5 River Section (two-column) ======= */}
+      {/* ======= River Section (two-column, untouched) ======= */}
       {stage >= 3 && (
         <StreetSection
           leftPanel={
@@ -310,9 +307,9 @@ export default function App() {
         />
       )}
 
-      {/* ======= 1.6 Matrix Section (unchanged) ======= */}
+      {/* ======= Matrix Section (unchanged) ======= */}
       <MatrixPanel
-        grid={grid} c1={c1} c2={c2}
+        grid={grid} c1={matrixC1} c2={matrixC2}
         seatName={seatName}
         openPopoverId={openPopoverId} setOpenPopoverId={setOpenPopoverId}
       />
