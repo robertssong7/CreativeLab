@@ -3,8 +3,7 @@ import { RANKS_ASC, SUITS, SUIT_SYMBOL, COLOR, label } from '../utils/poker';
 
 /**
  * Flop card picker — card grid with fixed-height tile.
- * Selected cards fill the top area, grid sits at the bottom.
- * Height is locked to prevent any tile movement.
+ * Grid fills container naturally (no scroll, no max-width).
  */
 export default function FlopPicker({
     cards, setCards,
@@ -56,7 +55,6 @@ export default function FlopPicker({
     };
 
     return (
-        /* Fixed-height container */
         <div style={{ minHeight: '240px' }}>
             <div className="flex items-center justify-between mb-2">
                 <div className="text-sm font-semibold text-slate-600">Choose the flop</div>
@@ -68,45 +66,43 @@ export default function FlopPicker({
                 )}
             </div>
 
-            {/* Always-visible selected cards area — 3 slots */}
+            {/* Always-visible 3 card slots */}
             <div className="flex items-center gap-3 justify-center" style={{ minHeight: '88px' }}>
                 {cards.map((c, i) => <div key={i}>{renderCard(c)}</div>)}
             </div>
 
-            {/* Card grid at the bottom */}
+            {/* Card grid */}
             {showGrid ? (
                 <div className="mt-1">
                     <div className="text-xs text-slate-400 mb-1">
                         {selectedCount === 0 ? "Pick first flop card" : selectedCount === 1 ? "Pick second flop card" : "Pick third flop card"}
                     </div>
-                    <div className="overflow-x-auto" style={{ maxWidth: '55%' }}>
-                        <div className="grid gap-0.5" style={{ gridTemplateColumns: `repeat(13, minmax(0, 1fr))` }}>
-                            {SUITS.map(s =>
-                                RANKS_ASC.map(r => {
-                                    const k = `${r}${s}`;
-                                    const isSelected = cards.includes(k);
-                                    const disabled = allUsed.has(k) && !isSelected;
-                                    return (
-                                        <button
-                                            key={k}
-                                            disabled={disabled || isSelected}
-                                            onClick={() => handleCardClick(k)}
-                                            className={`py-1.5 px-0.5 rounded text-[13px] font-semibold transition-all border
-                        ${isSelected
-                                                    ? "bg-emerald-600 text-white border-emerald-700 shadow-sm"
-                                                    : disabled
-                                                        ? "opacity-15 cursor-not-allowed border-slate-100 bg-slate-50 text-slate-300"
-                                                        : "border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-400 cursor-pointer"
-                                                }`}
-                                            style={!isSelected && !disabled ? { color: COLOR(s) } : undefined}
-                                            title={label(r, s)}
-                                        >
-                                            {r === "T" ? "10" : r}{SUIT_SYMBOL[s]}
-                                        </button>
-                                    );
-                                })
-                            )}
-                        </div>
+                    <div className="grid gap-0.5" style={{ gridTemplateColumns: `repeat(13, minmax(0, 1fr))` }}>
+                        {SUITS.map(s =>
+                            RANKS_ASC.map(r => {
+                                const k = `${r}${s}`;
+                                const isSelected = cards.includes(k);
+                                const disabled = allUsed.has(k) && !isSelected;
+                                return (
+                                    <button
+                                        key={k}
+                                        disabled={disabled || isSelected}
+                                        onClick={() => handleCardClick(k)}
+                                        className={`py-1.5 px-0.5 rounded text-[13px] font-semibold transition-all border
+                      ${isSelected
+                                                ? "bg-emerald-600 text-white border-emerald-700 shadow-sm"
+                                                : disabled
+                                                    ? "opacity-15 cursor-not-allowed border-slate-100 bg-slate-50 text-slate-300"
+                                                    : "border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-400 cursor-pointer"
+                                            }`}
+                                        style={!isSelected && !disabled ? { color: COLOR(s) } : undefined}
+                                        title={label(r, s)}
+                                    >
+                                        {r === "T" ? "10" : r}{SUIT_SYMBOL[s]}
+                                    </button>
+                                );
+                            })
+                        )}
                     </div>
                 </div>
             ) : (

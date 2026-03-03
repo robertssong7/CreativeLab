@@ -3,8 +3,7 @@ import { RANKS_ASC, SUITS, SUIT_SYMBOL, COLOR, label } from '../utils/poker';
 
 /**
  * Hole card picker — 4×13 card grid.
- * Fixed-height tile: grid always occupies the bottom, selected cards shown at top.
- * No height change when cards are selected/deselected.
+ * Fixed-height tile. Grid fills its container naturally (no scroll, no max-width).
  */
 export default function HoleCardsPicker({
     card1, card2, setCard1, setCard2,
@@ -57,7 +56,6 @@ export default function HoleCardsPicker({
     };
 
     return (
-        /* Fixed-height container — tall enough for header + selected cards + grid */
         <div style={{ minHeight: '220px' }}>
             <div className="flex items-center justify-between mb-2">
                 <div className="text-sm font-semibold text-slate-600">Choose your cards</div>
@@ -69,7 +67,7 @@ export default function HoleCardsPicker({
                 )}
             </div>
 
-            {/* Always-visible selected cards area (fixed height reservation) */}
+            {/* Always-visible selected cards area */}
             <div className="flex items-center gap-3 justify-center" style={{ minHeight: '88px' }}>
                 {bothSelected && !showGrid ? (
                     <>
@@ -84,44 +82,41 @@ export default function HoleCardsPicker({
                 ) : null}
             </div>
 
-            {/* Card grid — always takes bottom space */}
+            {/* Card grid — fills container width naturally */}
             {showGrid ? (
                 <div className="mt-1">
                     <div className="text-xs text-slate-400 mb-1">
                         {!card1 ? "Pick your first card" : !card2 ? "Pick your second card" : "Pick your first card"}
                     </div>
-                    <div className="overflow-x-auto" style={{ maxWidth: '55%' }}>
-                        <div className="grid gap-0.5" style={{ gridTemplateColumns: `repeat(13, minmax(0, 1fr))` }}>
-                            {SUITS.map(s =>
-                                RANKS_ASC.map(r => {
-                                    const k = `${r}${s}`;
-                                    const disabled = holeUsed.has(k) && k !== card1 && k !== card2;
-                                    const selected = card1 === k || card2 === k;
-                                    return (
-                                        <button
-                                            key={k}
-                                            disabled={disabled}
-                                            onClick={() => handleCardClick(k)}
-                                            className={`py-1.5 px-0.5 rounded text-[13px] font-semibold transition-all border
-                        ${selected
-                                                    ? "bg-indigo-600 text-white border-indigo-700 shadow-sm"
-                                                    : disabled
-                                                        ? "opacity-15 cursor-not-allowed border-slate-100 bg-slate-50 text-slate-300"
-                                                        : "border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-400 cursor-pointer"
-                                                }`}
-                                            style={!selected && !disabled ? { color: COLOR(s) } : undefined}
-                                            title={label(r, s)}
-                                        >
-                                            {r === "T" ? "10" : r}{SUIT_SYMBOL[s]}
-                                        </button>
-                                    );
-                                })
-                            )}
-                        </div>
+                    <div className="grid gap-0.5" style={{ gridTemplateColumns: `repeat(13, minmax(0, 1fr))` }}>
+                        {SUITS.map(s =>
+                            RANKS_ASC.map(r => {
+                                const k = `${r}${s}`;
+                                const disabled = holeUsed.has(k) && k !== card1 && k !== card2;
+                                const selected = card1 === k || card2 === k;
+                                return (
+                                    <button
+                                        key={k}
+                                        disabled={disabled}
+                                        onClick={() => handleCardClick(k)}
+                                        className={`py-1.5 px-0.5 rounded text-[13px] font-semibold transition-all border
+                      ${selected
+                                                ? "bg-indigo-600 text-white border-indigo-700 shadow-sm"
+                                                : disabled
+                                                    ? "opacity-15 cursor-not-allowed border-slate-100 bg-slate-50 text-slate-300"
+                                                    : "border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-400 cursor-pointer"
+                                            }`}
+                                        style={!selected && !disabled ? { color: COLOR(s) } : undefined}
+                                        title={label(r, s)}
+                                    >
+                                        {r === "T" ? "10" : r}{SUIT_SYMBOL[s]}
+                                    </button>
+                                );
+                            })
+                        )}
                     </div>
                 </div>
             ) : (
-                /* Invisible spacer — same height as the grid would take */
                 <div style={{ minHeight: '110px' }} />
             )}
         </div>

@@ -211,38 +211,43 @@ export default function App() {
         }
       />
 
-      {/* ======= Flop Section (card grid) ======= */}
+      {/* ======= Flop Section (two-column like others) ======= */}
       {stage >= 1 && (
-        <div className="p-4 mt-4 bg-white rounded-2xl border border-slate-200 shadow-sm">
-          <FlopPicker
-            cards={flopCards}
-            setCards={setFlopCard}
-            usedCards={holeUsedForFlop}
-            showGrid={flopShowGrid} setShowGrid={setFlopShowGrid}
-          />
-          {flop && (
-            <div className="text-xs mt-2 text-slate-500">
-              Detected: <span className="text-slate-900 font-medium">{flEval?.made}</span>
-              {flEval?.notes?.length ? ` • ${flEval.notes.join(', ')}` : ''}
-            </div>
-          )}
-          {/* Flop insights */}
-          <div className="mt-2 p-3 bg-slate-50 rounded-2xl border border-slate-200">
-            <InsightsPanel
-              street="flop"
-              advice={adv1} confidence={conf1}
-              hu={hu1} mw={mw1}
-              prevHu={hu0} prevMw={mw0}
-              evalData={flEval}
-              accentColor="text-emerald-600"
-              openPopoverId={openPopoverId} setOpenPopoverId={setOpenPopoverId}
-            />
-            <div className="mt-2 flex gap-2">
-              {flop && <button className="px-3 py-2 rounded-md bg-emerald-600 hover:bg-emerald-500 text-white font-semibold transition-colors shadow-sm" onClick={() => setStage(2)}>Play</button>}
-              <button className="px-3 py-2 rounded-md border border-slate-300 hover:bg-white text-slate-600" onClick={newRound}>Fold</button>
-            </div>
-          </div>
-        </div>
+        <StreetSection
+          leftPanel={
+            <>
+              <FlopPicker
+                cards={flopCards}
+                setCards={setFlopCard}
+                usedCards={holeUsedForFlop}
+                showGrid={flopShowGrid} setShowGrid={setFlopShowGrid}
+              />
+              {flop && (
+                <div className="text-xs mt-2 text-slate-500">
+                  Detected: <span className="text-slate-900 font-medium">{flEval?.made}</span>
+                  {flEval?.notes?.length ? ` • ${flEval.notes.join(', ')}` : ''}
+                </div>
+              )}
+            </>
+          }
+          rightPanel={
+            <>
+              <InsightsPanel
+                street="flop"
+                advice={adv1} confidence={conf1}
+                hu={hu1} mw={mw1}
+                prevHu={hu0} prevMw={mw0}
+                evalData={flEval}
+                accentColor="text-emerald-600"
+                openPopoverId={openPopoverId} setOpenPopoverId={setOpenPopoverId}
+              />
+              <div className="mt-2 flex gap-2">
+                {flop && <button className="px-3 py-2 rounded-md bg-emerald-600 hover:bg-emerald-500 text-white font-semibold transition-colors shadow-sm" onClick={() => setStage(2)}>Play</button>}
+                <button className="px-3 py-2 rounded-md border border-slate-300 hover:bg-white text-slate-600" onClick={newRound}>Fold</button>
+              </div>
+            </>
+          }
+        />
       )}
 
       {/* ======= Turn Section (two-column, untouched) ======= */}

@@ -2,9 +2,9 @@ import React from 'react';
 import { RANKS_ASC, SUITS, SUIT_SYMBOL, COLOR, label } from '../utils/poker';
 
 /**
- * Compact card picker for single card selection (turn/river).
- * Fixed-height tile — selected card shown larger at ~25% mark with Clear to the right.
- * Grid always visible. No layout shift.
+ * Single card picker for turn/river.
+ * Fixed-height tile. Grid fills container naturally.
+ * Selected card shown larger at ~25% with Clear to the right.
  */
 export default function SingleCardPicker({ value, onChange, usedCards = new Set(), title = "Choose a card" }) {
     const renderSelectedCard = (cardKey) => {
@@ -21,7 +21,6 @@ export default function SingleCardPicker({ value, onChange, usedCards = new Set(
     };
 
     return (
-        /* Fixed-height container */
         <div style={{ minHeight: '220px' }}>
             <div className="text-sm font-semibold text-slate-600 mb-2">{title}</div>
 
@@ -40,35 +39,33 @@ export default function SingleCardPicker({ value, onChange, usedCards = new Set(
                 )}
             </div>
 
-            {/* Card grid — always visible */}
-            <div className="overflow-x-auto" style={{ maxWidth: '55%' }}>
-                <div className="grid gap-0.5" style={{ gridTemplateColumns: `repeat(13, minmax(0, 1fr))` }}>
-                    {SUITS.map(s =>
-                        RANKS_ASC.map(r => {
-                            const k = `${r}${s}`;
-                            const disabled = usedCards.has(k);
-                            const selected = value === k;
-                            return (
-                                <button
-                                    key={k}
-                                    disabled={disabled}
-                                    onClick={() => onChange(selected ? "" : k)}
-                                    className={`py-1.5 px-0.5 rounded text-[13px] font-semibold transition-all border
-                    ${selected
-                                            ? "bg-indigo-600 text-white border-indigo-700 shadow-sm"
-                                            : disabled
-                                                ? "opacity-15 cursor-not-allowed border-slate-100 bg-slate-50 text-slate-300"
-                                                : "border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-400 cursor-pointer"
-                                        }`}
-                                    style={!selected && !disabled ? { color: COLOR(s) } : undefined}
-                                    title={label(r, s)}
-                                >
-                                    {r === "T" ? "10" : r}{SUIT_SYMBOL[s]}
-                                </button>
-                            );
-                        })
-                    )}
-                </div>
+            {/* Card grid — fills container width naturally */}
+            <div className="grid gap-0.5" style={{ gridTemplateColumns: `repeat(13, minmax(0, 1fr))` }}>
+                {SUITS.map(s =>
+                    RANKS_ASC.map(r => {
+                        const k = `${r}${s}`;
+                        const disabled = usedCards.has(k);
+                        const selected = value === k;
+                        return (
+                            <button
+                                key={k}
+                                disabled={disabled}
+                                onClick={() => onChange(selected ? "" : k)}
+                                className={`py-1.5 px-0.5 rounded text-[13px] font-semibold transition-all border
+                  ${selected
+                                        ? "bg-indigo-600 text-white border-indigo-700 shadow-sm"
+                                        : disabled
+                                            ? "opacity-15 cursor-not-allowed border-slate-100 bg-slate-50 text-slate-300"
+                                            : "border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-400 cursor-pointer"
+                                    }`}
+                                style={!selected && !disabled ? { color: COLOR(s) } : undefined}
+                                title={label(r, s)}
+                            >
+                                {r === "T" ? "10" : r}{SUIT_SYMBOL[s]}
+                            </button>
+                        );
+                    })
+                )}
             </div>
         </div>
     );
